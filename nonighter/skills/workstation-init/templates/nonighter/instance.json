@@ -1,0 +1,29 @@
+{
+  "schema": 1,
+  "version": "{{VERSION}}",
+  "instance": {
+    "name": "{{INSTANCE_NAME}}",
+    "prefix": "{{INSTANCE_PREFIX}}",
+    "host": "{{HOST_PATH}}",
+    "org": "{{ORG_NAME}}",
+    "user": "{{USER_NAME}}",
+    "installed": "{{INSTALL_DATE}}"
+  },
+  "systems": {
+    "retrieval": true,
+    "memory": true,
+    "conventions": true,
+    "context": false,
+    "tools": false,
+    "knowledge-base": false
+  },
+  "host-wiring": {
+    "claude-md": "created",
+    "agents-md": "absent"
+  },
+  "nested": {
+    "ancestor": null,
+    "descendants": []
+  },
+  "stamped": {}
+}

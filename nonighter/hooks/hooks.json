@@ -1,0 +1,16 @@
+{
+  "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "py \"${CLAUDE_PLUGIN_ROOT}/hooks/check_workstation.py\" || python3 \"${CLAUDE_PLUGIN_ROOT}/hooks/check_workstation.py\" || echo '{\"hookSpecificOutput\":{\"hookEventName\":\"SessionStart\",\"additionalContext\":\"NoNighter: this machine has no Python, so nothing this plugin does with a workstation can run - not loading one, not installing one, not checking one. Tell the user in one line, in their terms: the NoNighter tools need Python and it is not installed here, so somebody has to install it before this folder can remember anything. Then get on with what they asked for - the modeling skills need Python too, so say it once and let them decide. Do not retry. **Do not install it unasked**: it is a change to their machine. If they ask you to, it is winget install Python.Python.3.12 - the same one the delivery kit uses - and it is confirmed first, like any change to their machine. If it fails on permissions, this is a computer they do not fully control: say that whoever administers it has to install Python, and stop there.\"}}'",
+            "timeout": 15,
+            "statusMessage": "Checking for the NoNighter workstation..."
+          }
+        ]
+      }
+    ]
+  }
+}

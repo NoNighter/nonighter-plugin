@@ -1,0 +1,6 @@
+# The bundled template set must round-trip byte-for-byte. Text files installed from it are hashed on
+# normalized content, so a CRLF checkout survives that path - but a `verbatim` file is copied with no
+# substitution and any binary is hashed by raw bytes, and for those a checkout that rewrote line
+# endings would disagree with what was delivered. Cheaper to keep the whole tree byte-exact than to
+# maintain the list of which files it is safe for.
+nonighter/skills/workstation-init/templates/** -text

@@ -1,0 +1,301 @@
+{
+  "schema": 1,
+  "version": "0.6.0",
+  "tokens": [
+    {
+      "token": "{{INSTANCE_NAME}}",
+      "source": "asked",
+      "example": "Home"
+    },
+    {
+      "token": "{{INSTANCE_PREFIX}}",
+      "source": "derived",
+      "example": "HOME",
+      "rule": "uppercase initials or short slug of INSTANCE_NAME; unique within the instance"
+    },
+    {
+      "token": "{{HOST_PATH}}",
+      "source": "detected",
+      "example": "C:/Users/ada",
+      "rule": "absolute path of the host folder, as the harness reports it"
+    },
+    {
+      "token": "{{USER_NAME}}",
+      "source": "asked",
+      "example": "Ada Lovelace"
+    },
+    {
+      "token": "{{ORG_NAME}}",
+      "source": "asked",
+      "example": "NoNighter LLC"
+    },
+    {
+      "token": "{{USER_FIELD}}",
+      "source": "asked",
+      "example": "what the user does and the sector they work in - the vocabulary, the units and the assumptions a question can take for granted"
+    },
+    {
+      "token": "{{INSTALL_DATE}}",
+      "source": "derived",
+      "example": "2026-08-26",
+      "rule": "ISO date at install"
+    },
+    {
+      "token": "{{VERSION}}",
+      "source": "derived",
+      "example": "0.1.0",
+      "rule": "this manifest's version field"
+    }
+  ],
+  "scope-tokens": [
+    {
+      "token": "{{SCOPE_TITLE}}",
+      "note": "used only by templates/scope/, stamped when a scope is created"
+    },
+    {
+      "token": "{{SCOPE_SLUG}}",
+      "note": "kebab-case, matches the folder name"
+    },
+    {
+      "token": "{{SCOPE_PREFIX}}",
+      "note": "work-list ID prefix for this scope"
+    },
+    {
+      "token": "{{SCOPE_TYPE}}",
+      "note": "initiative | project | task"
+    },
+    {
+      "token": "{{SCOPE_ONE_LINER}}",
+      "note": "the blockquote's first part"
+    },
+    {
+      "token": "{{SCOPE_DOING}}",
+      "note": "completes 'it is ...' in the boundary line"
+    },
+    {
+      "token": "{{SCOPE_PHASE}}",
+      "note": "one line for the Status block"
+    }
+  ],
+  "conditional-blocks": {
+    "syntax": "<!-- if:<system> --> ... <!-- /if:<system> -->",
+    "rule": "When the system is enabled, strip the two marker lines and keep the body. When it is disabled, delete the markers and everything between them. A marker left in a stamped file is an install defect.",
+    "systems": [
+      "context",
+      "nested",
+      "watch"
+    ]
+  },
+  "folders": [
+    {
+      "target": ".nonighter",
+      "system": "always"
+    },
+    {
+      "target": ".nonighter/memory",
+      "system": "always"
+    },
+    {
+      "target": ".nonighter/memory/records",
+      "system": "always"
+    },
+    {
+      "target": ".nonighter/memory/archive",
+      "system": "always"
+    },
+    {
+      "target": ".nonighter/memory/runs",
+      "system": "always"
+    },
+    {
+      "target": ".nonighter/improvement",
+      "system": "always"
+    },
+    {
+      "target": ".nonighter/improvement/runs",
+      "system": "always"
+    },
+    {
+      "target": ".nonighter/watch",
+      "system": "watch"
+    },
+    {
+      "target": ".nonighter/watch/runs",
+      "system": "watch"
+    },
+    {
+      "target": ".nonighter/context",
+      "system": "context"
+    },
+    {
+      "target": ".nonighter/context/cards",
+      "system": "context"
+    },
+    {
+      "target": ".nonighter/context/runs",
+      "system": "context"
+    },
+    {
+      "target": ".nonighter/tools",
+      "system": "always"
+    },
+    {
+      "target": ".nonighter/knowledge-base",
+      "system": "always"
+    }
+  ],
+  "files": [
+    {
+      "template": "nonighter/AGENTS.md",
+      "target": ".nonighter/AGENTS.md",
+      "system": "always",
+      "hashed": true
+    },
+    {
+      "template": "nonighter/CONVENTIONS.md",
+      "target": ".nonighter/CONVENTIONS.md",
+      "system": "always",
+      "hashed": true
+    },
+    {
+      "template": "nonighter/MEMORY.md",
+      "target": ".nonighter/MEMORY.md",
+      "system": "always",
+      "hashed": false
+    },
+    {
+      "template": "nonighter/operating-manual.md",
+      "target": ".nonighter/operating-manual.md",
+      "system": "always",
+      "hashed": false
+    },
+    {
+      "template": "nonighter/instance.json",
+      "target": ".nonighter/instance.json",
+      "system": "always",
+      "hashed": false
+    },
+    {
+      "template": "nonighter/memory/instructions-memory-maintenance.md",
+      "target": ".nonighter/memory/instructions-memory-maintenance.md",
+      "system": "always",
+      "hashed": true
+    },
+    {
+      "template": "nonighter/memory/index-memory-records.md",
+      "target": ".nonighter/memory/index-memory-records.md",
+      "system": "always",
+      "hashed": false
+    },
+    {
+      "template": "nonighter/memory/check-memory-structure.py",
+      "target": ".nonighter/memory/check-memory-structure.py",
+      "system": "always",
+      "hashed": true
+    },
+    {
+      "template": "nonighter/improvement/instructions-improvement-pass.md",
+      "target": ".nonighter/improvement/instructions-improvement-pass.md",
+      "system": "always",
+      "hashed": true
+    },
+    {
+      "template": "nonighter/watch/instructions-market-watch.md",
+      "target": ".nonighter/watch/instructions-market-watch.md",
+      "system": "watch",
+      "hashed": true
+    },
+    {
+      "template": "nonighter/watch/coverage.md",
+      "target": ".nonighter/watch/coverage.md",
+      "system": "watch",
+      "hashed": false
+    },
+    {
+      "template": "nonighter/context/instructions-context.md",
+      "target": ".nonighter/context/instructions-context.md",
+      "system": "context",
+      "hashed": true
+    },
+    {
+      "template": "nonighter/context/index-context.md",
+      "target": ".nonighter/context/index-context.md",
+      "system": "context",
+      "hashed": false
+    },
+    {
+      "template": "nonighter/context/sources.json",
+      "target": ".nonighter/context/sources.json",
+      "system": "context",
+      "hashed": false
+    },
+    {
+      "template": "nonighter/context/tag-dimensions.md",
+      "target": ".nonighter/context/tag-dimensions.md",
+      "system": "context",
+      "hashed": false
+    },
+    {
+      "template": "nonighter/tools/instructions-tools.md",
+      "target": ".nonighter/tools/instructions-tools.md",
+      "system": "always",
+      "hashed": true
+    },
+    {
+      "template": "nonighter/tools/index-tools.md",
+      "target": ".nonighter/tools/index-tools.md",
+      "system": "always",
+      "hashed": false
+    },
+    {
+      "template": "nonighter/knowledge-base/instructions-knowledge-base.md",
+      "target": ".nonighter/knowledge-base/instructions-knowledge-base.md",
+      "system": "always",
+      "hashed": true
+    },
+    {
+      "template": "nonighter/knowledge-base/index-knowledge-base.md",
+      "target": ".nonighter/knowledge-base/index-knowledge-base.md",
+      "system": "always",
+      "hashed": false
+    }
+  ],
+  "host-files": [
+    {
+      "template": "host/CLAUDE.md",
+      "target": "CLAUDE.md",
+      "when": "host has no CLAUDE.md",
+      "hashed": false
+    },
+    {
+      "template": "host/route-block.md",
+      "target": "CLAUDE.md",
+      "when": "host has a CLAUDE.md",
+      "mode": "append-marked-block",
+      "hashed": false
+    },
+    {
+      "template": "host/route-block.md",
+      "target": "AGENTS.md",
+      "when": "host has an AGENTS.md",
+      "mode": "append-marked-block",
+      "hashed": false
+    }
+  ],
+  "on-demand": [
+    {
+      "template": "scope/instructions-topic.md",
+      "note": "stamped into initiatives/ projects/ tasks/<name>/ when a scope is created, never at install"
+    },
+    {
+      "template": "scope/memory-topic.md",
+      "note": "stamped alongside it"
+    }
+  ],
+  "token-substitution": {
+    "rule": "Substitute every token in `tokens` into every stamped file.",
+    "json-targets": "In a target whose name ends .json, substitute the JSON-escaped value, not the raw one. {{HOST_PATH}} on Windows contains backslashes, and a raw backslash is an invalid JSON escape - an instance.json written without this step does not parse, and verify and upgrade both refuse to run against it.",
+    "verbatim": "A file listed in `verbatim` is copied with no substitution. Its angle-bracket placeholders are filled in later, by whoever uses it."
+  },
+  "verbatim": []
+}

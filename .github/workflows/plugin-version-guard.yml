@@ -1,0 +1,75 @@
+name: plugin version guard
+
+# The plugin's version number is the only thing the marketplace compares: a change merged without
+# moving it reaches no installed copy. The rule is written in nonighter/README.md and was missed on six
+# merges in one week, so it is checked here instead of remembered.
+
+on:
+  pull_request:
+    branches: [main]
+
+# Reads the repository and nothing else.
+permissions:
+  contents: read
+
+jobs:
+  version-moves-with-the-plugin:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: plugin changed => version moved, and both files agree
+        shell: bash
+        env:
+          # The base commit the PR was opened against - fixed for this run. The branch name would be
+          # a moving target: main can advance between the checkout and this step, and the diff would
+          # then carry unrelated changes and fail the PR for something it did not do.
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          set -euo pipefail
+
+          plugin=nonighter/.claude-plugin/plugin.json
+          market=.claude-plugin/marketplace.json
+
+          # The version of a file at a commit. A missing or unreadable file is a loud failure, not an
+          # empty string that the comparison below would then treat as an answer.
+          version_at() {
+            local content
+            if ! content=$(git show "$1:$2" 2>/dev/null); then
+              echo "::error::cannot read $2 at commit $1 - the version files must exist on both sides"
+              exit 1
+            fi
+            printf '%s' "$content" | python3 -c 'import json,sys; print(json.load(sys.stdin)["version"])'
+          }
+
+          # git diff runs on its own so a failure (a bad SHA, a shallow fetch) stops the job under
+          # set -e instead of being swallowed into an empty list that passes the check.
+          diff_out=$(git diff --name-only "$BASE_SHA" "$HEAD_SHA" -- nonighter/)
+          changed=$(printf '%s\n' "$diff_out" | grep -v '^nonighter/README.md$' | grep -v '^$' || true)
+
+          head_v=$(version_at "$HEAD_SHA" "$plugin")
+          base_v=$(version_at "$BASE_SHA" "$plugin")
+          market_v=$(version_at "$HEAD_SHA" "$market")
+
+          echo "plugin.json      base=$base_v  head=$head_v"
+          echo "marketplace.json head=$market_v"
+
+          if [ "$head_v" != "$market_v" ]; then
+            echo "::error::plugin.json says $head_v and marketplace.json says $market_v. They are one number; move both."
+            exit 1
+          fi
+
+          if [ -n "$changed" ] && [ "$head_v" = "$base_v" ]; then
+            echo "::error::This PR changes what ships (under nonighter/) and leaves the plugin version at $base_v. The marketplace compares only that number, so no installed copy would ever receive this. Bump version in $plugin and $market - one bump per merge."
+            echo "changed files:"; echo "$changed" | sed 's/^/  /'
+            exit 1
+          fi
+
+          if [ -z "$changed" ]; then
+            echo "nothing under nonighter/ changed; no bump required"
+          else
+            echo "version moved $base_v -> $head_v with the change; ok"
+          fi
