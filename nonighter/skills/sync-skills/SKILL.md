@@ -13,11 +13,19 @@ expire in about 15 minutes.
 
 ## Procedure
 
-1. **Ask the store.** Call the MCP tool `skills-provision` with no arguments. It answers with a manifest:
-   a `skills` list of `{name, version, kind, sha256, size, url}`. Save that JSON, exactly as returned,
-   to a temporary file (`manifest.json` in the session's scratch folder is fine).
-   - Tool unavailable → the `nonighter` connector is not authorised. Say so in one line — *"to get the
-     modeling skills, authorise the NoNighter connector and ask me to update your skills"* — and stop.
+1. **Ask the store.** Call the MCP tool `skills-provision` with no arguments. It is served by NoNighter's
+   MCP server, which may appear in this session under more than one name — the plugin's own `nonighter`
+   connection, or a `nonighter`/`nonighter-dev` connector the user added to their account. **Any of them
+   is fine: look for the tool by name across every connected NoNighter server.** It answers with a
+   manifest: a `skills` list of `{name, version, kind, sha256, size, url}`. Save that JSON, exactly as
+   returned, to a temporary file (`manifest.json` in the session's scratch folder is fine).
+   - **Tool not found anywhere** → do not say the connector is "not authorised": you cannot know that.
+     Two things cause it, and one message covers both: *"I can't reach NoNighter's skill store from this
+     session. Check Settings → Plugins → NoNighter → Connectors: if it says Connect, connect it. Then open
+     a new session — the skills install by themselves when it starts."* The second sentence is not
+     optional: **a session lists its tools when it starts and never again**, so connecting or refreshing
+     a connector mid-session changes nothing here, and asking the user to retry in this session cannot
+     work. The hook asks for this sync at every start until it succeeds, so nothing is lost.
    - Refused with "User not found" or "no active licence" → say the user is not registered with
      NoNighter or the licence is inactive, and stop. Nothing else to do.
 
@@ -47,6 +55,8 @@ expire in about 15 minutes.
 - **REFUSED … already ships in the plugin** — a downloaded package carries the name of a shell skill.
   Nothing is overwritten. Tell the user NoNighter has to rename that package.
 - **download failed: HTTP 403** — the links expired. Re-run from step 1.
+- **The tool is missing although the user says the connector is connected** — they are probably right; this
+  session's tool list predates the connection or the server's latest deploy. Say so, and that a new session fixes it.
 
 ## When the hook triggers this
 
