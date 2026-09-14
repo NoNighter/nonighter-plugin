@@ -1,7 +1,8 @@
 # NoNighter plugin — how it works
 
-The plugin is a shell. It ships the skills that need a NoNighter account to do anything, plus the two
-pieces that make a folder and a machine ready: the workstation installer and the skill sync.
+The plugin is a shell. It ships the PDF import skill, which needs a NoNighter account to do anything, plus
+the two pieces that make a folder and a machine ready: the workstation installer and the skill sync.
+The concept-index skills (`workflow-autofill`, `concept-value-lookup`) are not offered yet.
 
 ## Skills
 
@@ -9,8 +10,6 @@ pieces that make a folder and a machine ready: the workstation installer and the
 |-------|--------|-------------|
 | `workstation-init` | Wired | Install, verify, upgrade or unwire the `.nonighter/` workstation in a folder from the bundled template set |
 | `import-to-excel` | Wired | PDF import + image OCR via the `import-document-*` / `import-image-*` MCP tools |
-| `workflow-autofill` | Wired | Index workbook sheets and autofill via `workflow-concept-*` |
-| `concept-value-lookup` | Wired | Read a concept's value per year from imported-PDF tables |
 | `sync-skills` | Wired | Fetch the modeling skills a licensed user is entitled to, through the MCP tool `skills-provision`, and install them under `skills/` |
 
 Fetched, not shipped: `3-statement`, `dcf`, `scenario-manager`, `football-field`. They land under

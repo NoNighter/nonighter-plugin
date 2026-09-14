@@ -1,8 +1,8 @@
 # NoNighter plugin for Claude
 
-Financial modeling in Excel with Claude: import financial statements from PDFs, index a workbook's
-concepts, and build 3-statement models, DCF valuations, scenario managers and football-field summaries —
-the modeling skills are delivered to users with a NoNighter licence.
+Financial modeling in Excel with Claude: import financial statements from PDFs, and build 3-statement
+models, DCF valuations, scenario managers and football-field summaries — the modeling skills are
+delivered to users with a NoNighter licence.
 
 ## Install
 
@@ -27,8 +27,6 @@ Requires Python on the machine (`py` on Windows, `python3` elsewhere).
 | Skill | What it does |
 |---|---|
 | `import-to-excel` | Import tables from PDFs and images into Excel |
-| `workflow-autofill` | Index a workbook's labels to financial concepts and autofill models from it |
-| `concept-value-lookup` | Read a concept's value per year from imported documents |
 | `workstation-init` | Set up a folder so Claude remembers how you work there — conventions, memory, context |
 | `sync-skills` | Fetch the modeling skills your licence includes |
 
@@ -42,7 +40,7 @@ nonighter/                        the plugin
   .claude-plugin/plugin.json      manifest — its version is the marketplace's update signal
   .mcp.json                       the NoNighter MCP connector
   hooks/                          SessionStart: loads the workstation, restores synced skills
-  skills/                         the five skills above
+  skills/                         the three skills above
 ```
 
 ## Versioning

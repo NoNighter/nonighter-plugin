@@ -1,8 +1,8 @@
 {
   "name": "nonighter",
   "displayName": "NoNighter",
-  "version": "1.0.1",
-  "description": "NoNighter — financial modeling for Claude: PDF import, concept indexing, and the modeling skills your licence includes",
+  "version": "1.0.0",
+  "description": "NoNighter — financial modeling for Claude: PDF import and the modeling skills your licence includes",
   "author": {
     "name": "NoNighter LLC",
     "email": "contact@nonighter.com"
