@@ -53,5 +53,6 @@ merged without a bump reaches no installed copy. A pull-request check enforces i
 
 ## Licence
 
-MIT — see `LICENSE`. The plugin is open; the modeling skills it fetches are licensed NoNighter content and
-are not part of this repository.
+Proprietary — see `LICENSE`. The Plugin may be installed and read to use NoNighter's services; it may
+not be copied, modified, redistributed or used with other services. The modeling skills it fetches are
+licensed NoNighter content and are not part of this repository.

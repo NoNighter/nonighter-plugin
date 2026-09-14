@@ -1,8 +1,8 @@
 {
   "$schema": "https://json.schemastore.org/claude-code-marketplace.json",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "name": "nonighter",
-  "description": "NoNighter \u2014 Financial Modeling Tools for Claude",
+  "description": "NoNighter — Financial Modeling Tools for Claude",
   "owner": {
     "name": "NoNighter LLC",
     "email": "contact@nonighter.com"
@@ -11,7 +11,7 @@
     {
       "name": "nonighter",
       "source": "./nonighter",
-      "description": "NoNighter \u2014 Financial Modeling Tools"
+      "description": "NoNighter — Financial Modeling Tools"
     }
   ]
 }

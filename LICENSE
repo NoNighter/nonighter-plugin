@@ -1,21 +1,26 @@
-MIT License
+NoNighter Plugin License
 
-Copyright (c) 2026 NoNighter LLC
+Copyright (c) 2026 NoNighter LLC. All rights reserved.
 
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
+This software (the "Plugin") is made available solely to enable the use of NoNighter's services by
+NoNighter's customers and by people evaluating those services.
 
-The above copyright notice and this permission notice shall be included in all
-copies or substantial portions of the Software.
+You may:
+  1. install and run the Plugin in Claude to use NoNighter's services;
+  2. read the Plugin's source code.
 
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-SOFTWARE.
+You may not, without NoNighter's prior written permission:
+  1. copy, modify, adapt or create derivative works of the Plugin, except as needed to install it;
+  2. redistribute the Plugin or any part of it, on its own or bundled with other software;
+  3. use the Plugin, or anything derived from it, with services other than NoNighter's;
+  4. remove or alter this notice.
+
+The skills and other content the Plugin downloads from NoNighter's services are licensed separately
+under the agreement between NoNighter and the customer, and are not covered by this license.
+
+THE PLUGIN IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT
+LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN
+NO EVENT SHALL NONIGHTER LLC BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY ARISING FROM THE USE
+OF THE PLUGIN.
+
+Contact: contact@nonighter.com
