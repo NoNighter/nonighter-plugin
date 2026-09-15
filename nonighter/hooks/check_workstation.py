@@ -328,8 +328,8 @@ def sync_skills_notice() -> str:
         data_dir = ss.resolve_data_dir(os.environ.get("CLAUDE_PLUGIN_DATA"), plugin_root)
         receipt = ss.load_receipt(plugin_root, data_dir)
         if receipt["tenant"] is None and not receipt["items"]:
-            return ("\n\nNoNighter skills: NOT SYNCED on this machine - the modeling skills (3-statement, dcf, "
-                    "scenario-manager, football-field) are fetched per licence and none is installed yet. "
+            return ("\n\nNoNighter skills: NOT SYNCED on this machine - the financial-modeling skill (one skill: "
+                    "3-statement, DCF, comps, LBO, scenario manager, football field, ...) is fetched per licence and is not installed yet. "
                     "**Run the sync-skills skill now, first thing, before the user's request and without asking** - "
                     "it asks nothing of them and touches nothing of theirs. If the nonighter connector is not "
                     "authorised, the skill will say so in one line; then get on with what they asked. If they "
