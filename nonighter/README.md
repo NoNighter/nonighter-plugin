@@ -12,8 +12,7 @@ The concept-index skills (`workflow-autofill`, `concept-value-lookup`) are not o
 | `import-to-excel` | Wired | PDF import + image OCR via the `import-document-*` / `import-image-*` MCP tools |
 | `sync-skills` | Wired | Fetch the modeling skills a licensed user is entitled to, through the MCP tool `skills-provision`, and install them under `skills/` |
 
-Fetched, not shipped: `financial-modeling` — one skill with every modeling module (3-statement, DCF,
-comps, LBO, scenario manager, football field, …) and its templates. It lands under `skills/<name>/` on
+Fetched, not shipped: `financial-modeling`, with its modules and templates. It lands under `skills/<name>/` on
 the user's machine and is listed as `nonighter:<name>` from the next session.
 
 ## The skill sync
