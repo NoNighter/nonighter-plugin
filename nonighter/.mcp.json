@@ -2,7 +2,7 @@
   "mcpServers": {
     "nonighter": {
       "type": "http",
-      "url": "https://mcp-dev.nonighter.com"
+      "url": "https://mcp-qa.nonighter.com"
     }
   }
 }

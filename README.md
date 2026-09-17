@@ -1,8 +1,7 @@
 # NoNighter plugin for Claude
 
-Financial modeling in Excel with Claude: import financial statements from PDFs, and build 3-statement
-models, DCF valuations, scenario managers and football-field summaries — the modeling skills are
-delivered to users with a NoNighter licence.
+Financial modeling in Excel with Claude: import financial statements from PDFs, and build operating
+models and valuations with the modeling skill delivered to users with a NoNighter licence.
 
 ## Install
 
@@ -30,7 +29,9 @@ Requires Python on the machine (`py` on Windows, `python3` elsewhere).
 | `workstation-init` | Set up a folder so Claude remembers how you work there — conventions, memory, context |
 | `sync-skills` | Fetch the modeling skills your licence includes |
 
-Fetched by `sync-skills` for licensed users: `3-statement`, `dcf`, `scenario-manager`, `football-field`.
+Fetched by `sync-skills`: whatever skills the licence includes, with their templates. Which ones
+those are is decided by the store and answered per licence, so this repository does not name them
+and no change to the catalogue needs a change here.
 
 ## Repository layout
 
