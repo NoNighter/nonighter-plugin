@@ -20,8 +20,10 @@ under `skills/<name>/` on the user's machine and is listed as `nonighter:<name>`
 1. On every SessionStart the hook checks the sync receipt. Never synced on this machine → it tells the
    session to run `sync-skills` at once, before the user's request and without asking. Synced but the
    plugin folder was rebuilt (every plugin version; every session in Cowork) → the hook re-copies the
-   skills from the local zip cache itself, before Claude lists skills, so they are available in that
-   session. Last sync older than seven days → the session offers a refresh once, after answering.
+   skills from the local zip cache itself, no network. They are on disk for that session but **not in
+   its skill list** (the list is taken before the hook runs — measured 2026-09-17), so the hook tells the
+   session to read the `SKILL.md` directly if asked; the next session lists them. Last sync older than
+   seven days → the session offers a refresh once, after answering.
 2. `sync-skills` calls the MCP tool `skills-provision`. The MCP authenticates the user (Entra) and checks
    the licence; the answer is a manifest of presigned S3 URLs, valid ~15 minutes.
 3. `skills/sync-skills/scripts/sync_skills.py` downloads each package, verifies its sha256 and installs

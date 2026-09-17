@@ -62,7 +62,8 @@ expire in about 15 minutes.
 ## When the hook triggers this
 
 The SessionStart hook restores previously synced skills from the local cache by itself, without
-network, when a plugin update rebuilt the plugin folder. It calls for this skill in two cases: nothing
+network, when a plugin update rebuilt the plugin folder — they are usable in that session by reading
+their `SKILL.md`, and listed from the next one. It calls for this skill in two cases: nothing
 was ever synced on this machine — then run it **right away, before the user's request, without asking**
 — or the last sync is older than seven days — then **offer** it once, at the end of the first turn, after
 answering, and never gate the user's work on it.

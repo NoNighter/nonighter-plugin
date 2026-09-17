@@ -312,9 +312,13 @@ def maintenance_nudge(ws_dir: Path) -> str:
 
 # The modeling skills are not in this plugin: `sync-skills` fetches them for a licensed user and installs
 # them under skills/. That folder is rebuilt on every plugin version (and per session in Cowork), so this
-# hook does two things on every start, both before Claude enumerates skills: re-copy receipted skills
-# from the local zip cache when they are missing (no network, no model), and tell the session what to do
-# when nothing was ever synced here (run sync-skills at once) or the last sync is stale (offer it once).
+# hook does two things on every start: re-copy receipted skills from the local zip cache when they are
+# missing (no network, no model), and tell the session what to do when nothing was ever synced here (run
+# sync-skills at once) or the last sync is stale (offer it once). One thing it cannot do: get a restored
+# skill into THIS session's skill list. Measured 2026-09-17 on the Desktop Code tab: the list is taken
+# before this hook runs - the hook wrote the folder at 10:05:00.3 and the session that started at
+# 10:05:00.7 did not list it. So the first session after a plugin update sees the skill on disk but not
+# in its list; the message below tells it to read the SKILL.md directly, and the next session lists it.
 # Fail-quiet like everything else in this hook.
 SYNC_STALE_AFTER_DAYS = 7
 
@@ -349,7 +353,11 @@ def sync_skills_notice() -> str:
         parts = []
         if restored:
             parts.append("NoNighter skills: the plugin folder was rebuilt, so {} were re-installed from the local "
-                         "cache before this session started; they are available now.".format(", ".join(restored)))
+                         "cache as this session started. They are NOT in this session's skill list - the list is "
+                         "taken before this hook runs - but they are on disk and usable: if the user asks for "
+                         "modeling work now, open skills/<name>/SKILL.md under the plugin root and follow it as if "
+                         "the skill had been invoked, and never say it is missing. From the next session they are "
+                         "listed as usual.".format(", ".join(restored)))
         if uncached:
             parts.append("NoNighter skills {} are recorded as installed but missing and not in the cache: run the "
                          "sync-skills skill now, without asking, to fetch them again.".format(", ".join(uncached)))
