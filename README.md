@@ -29,8 +29,9 @@ Requires Python on the machine (`py` on Windows, `python3` elsewhere).
 | `workstation-init` | Set up a folder so Claude remembers how you work there — conventions, memory, context |
 | `sync-skills` | Fetch the modeling skills your licence includes |
 
-Fetched by `sync-skills` for licensed users: `financial-modeling`, with its modules and templates
-inside. What a given licence includes is decided by the store, not by this repository.
+Fetched by `sync-skills`: whatever skills the licence includes, with their templates. Which ones
+those are is decided by the store and answered per licence, so this repository does not name them
+and no change to the catalogue needs a change here.
 
 ## Repository layout
 

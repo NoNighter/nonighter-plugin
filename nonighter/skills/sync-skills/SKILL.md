@@ -1,12 +1,12 @@
 ---
 name: sync-skills
-description: Fetch and install the NoNighter skills the user's licence includes — the financial-modeling skills — into this plugin, from NoNighter's store through the MCP. Use when the SessionStart hook says the skills were never synced on this machine or the last sync is stale, or when the user asks to "sync my skills", "actualizar mis skills", "update my NoNighter skills", "why don't I have the modeling skill". Not the workstation installer — that is workstation-init.
+description: Fetch and install the NoNighter skills the user's licence includes into this plugin, from NoNighter's store through the MCP. Use when the SessionStart hook says the skills were never synced on this machine or the last sync is stale, or when the user asks to "sync my skills", "actualizar mis skills", "update my NoNighter skills", "why don't I have the modeling skill". Not the workstation installer — that is workstation-init.
 ---
 
 # sync-skills
 
-The plugin you installed is a shell. The skill that does the modeling, `financial-modeling`, is
-fetched here, once per machine and again whenever a new
+The plugin you installed is a shell. The skills that do the modeling are fetched here, once per
+machine and again whenever a new
 version is published, for users with an active NoNighter licence. Nothing is stored about the user, no
 credential is kept: the MCP authenticates, the packages download straight from S3 through links that
 expire in about 15 minutes.
@@ -42,8 +42,9 @@ expire in about 15 minutes.
    installs or updates: nothing of the user's is touched and nothing is asked of them. **Do ask** before
    a `remove`, since it deletes a skill they may rely on.
 
-4. **Report in one or two lines, in the user's terms.** "Your NoNighter financial-modeling skill is installed —
-   the modeling work you are licensed for." Then the one fact that matters:
+4. **Report in one or two lines, in the user's terms.** Name what the sync actually installed, from
+   the manifest it returned -- never a list written down anywhere, which goes stale the moment the
+   store changes. "Your NoNighter skills are installed: <names>." Then the one fact that matters:
    **they show up in the skills list from the next session.** If the user asks for modeling work *in
    this session*, do not say the skill is missing: open `${CLAUDE_PLUGIN_ROOT}/skills/<name>/SKILL.md`
    and follow it as if the skill had been invoked. Never quote paths, hashes, or the word "manifest".
