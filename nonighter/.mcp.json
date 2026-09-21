@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "nonighter": {
+      "type": "http",
+      "url": "https://mcp-qa.nonighter.com"
+    }
+  }
+}
