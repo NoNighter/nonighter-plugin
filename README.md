@@ -40,14 +40,14 @@ refuses to overwrite it.
 ## Which environment this plugin talks to
 
 `nonighter/.mcp.json` names the NoNighter server an installed copy uses, and it is the one thing here
-that decides which environment a user's skills come from. **It points at `mcp-qa.nonighter.com` as of
-2026-09-21**, because the production half of the skills service is not stood up yet: a copy pointing at
-production today could not fetch anything.
+that decides which environment a user's skills come from. **It points at `https://mcp.nonighter.com`
+as of 2026-10-07** — production, with the skills service published behind it and every package
+fetching and verifying.
 
-**Before this plugin is put in front of anyone outside the team, that URL becomes
-`https://mcp.nonighter.com`.** Nothing else in the repository has to change, and nothing checks it for
-you — it shipped pointing at a test environment once already, for days, because it was nobody's job to
-look.
+It pointed at a test environment twice before: at dev until 1.0.2, and at qa until 1.0.4 while the
+production half of the skills service was being stood up. The first of those lasted months, because
+nothing checks this line and it was nobody's job to look. Nothing checks it now either — if it ever
+changes again, it changes deliberately, and the version moves with it.
 
 ## Repository layout
 
