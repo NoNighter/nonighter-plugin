@@ -1,7 +1,7 @@
 {
   "name": "nonighter",
   "displayName": "NoNighter",
-  "version": "1.0.4",
+  "version": "1.1.0",
   "description": "NoNighter — financial modeling for Claude: PDF import and the modeling skills your licence includes",
   "author": {
     "name": "NoNighter LLC",
@@ -17,5 +17,6 @@
     "claude",
     "plugin"
   ],
-  "skills": "./skills/"
+  "skills": "./skills/",
+  "types": "./mods/noni-app/types/index.d.ts"
 }
