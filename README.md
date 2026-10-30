@@ -23,19 +23,25 @@ Requires Python on the machine (`py` on Windows, `python3` elsewhere).
 
 ## What is in the plugin
 
-Three things, and deliberately nothing else:
+Four things, and deliberately nothing else:
 
 | Piece | What it does |
 |---|---|
 | the connector | Reaches NoNighter's server, where your licence is checked |
-| the session hook | Keeps your fetched skills in place, and prompts the first sync |
-| `sync-skills` | Fetches the skills your licence includes, and installs them |
+| the session hook | Keeps your fetched skills and the NoNighter App in place, and prompts the first sync |
+| `sync-skills` | Fetches the skills your licence includes, and the NoNighter App when it does, and installs them |
+| an empty stand-in for the App | Holds the App's place until it is fetched; it does nothing on its own |
 
 Everything else is **fetched, not shipped** — the modeling and presentation skills, the workstation
-setup, the document import. Which ones you get is decided by the store and answered per licence, so
-this repository does not name them and no change to the catalogue needs a change here. It also keeps
-the sync honest: a skill delivered by licence must not also sit in the plugin, or the installer
-refuses to overwrite it.
+setup, the document import, the NoNighter App. Which ones you get is decided by the store and answered
+per licence, so this repository does not name the skills and no change to the catalogue needs a change
+here. It also keeps the sync honest: a skill delivered by licence must not also sit in the plugin, or the
+installer refuses to overwrite it.
+
+The NoNighter App changes Claude's own interface, so Claude loads it when plugins load rather than when
+a session lists skills. After it is installed, updated or put back, it appears once you type
+`/reload-plugins` or open a new session. In Cowork the plugin is rebuilt every session, so there the App
+needs that reload in each session.
 
 ## Which environment this plugin talks to
 
@@ -56,8 +62,9 @@ changes again, it changes deliberately, and the version moves with it.
 nonighter/                        the plugin
   .claude-plugin/plugin.json      manifest — its version is the marketplace's update signal
   .mcp.json                       the NoNighter MCP connector
-  hooks/                          SessionStart: restores synced skills, hands over to the workstation
+  hooks/                          SessionStart: restores synced skills and mods, hands over to the workstation
   skills/sync-skills/             the one skill that ships; the rest arrive by licence
+  mods/noni-app/                  empty stand-in module; the NoNighter App replaces it by licence
 ```
 
 ## Versioning
