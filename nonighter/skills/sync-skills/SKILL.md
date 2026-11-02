@@ -1,6 +1,6 @@
 ---
 name: sync-skills
-description: Fetch and install the NoNighter skills the user's licence includes into this plugin, from NoNighter's store through the MCP. Use when the SessionStart hook says the skills were never synced on this machine or the last sync is stale, or when the user asks to "sync my skills", "actualizar mis skills", "update my NoNighter skills", "why don't I have the modeling skill". Not the workstation installer — that is workstation-init.
+description: Fetch and install the NoNighter skills the user's licence includes into this plugin, from NoNighter's store through the MCP — and the NoNighter App, when the licence includes it. Use when the SessionStart hook says the skills were never synced on this machine or the last sync is stale, or when the user asks to "sync my skills", "actualizar mis skills", "update my NoNighter skills", "why don't I have the modeling skill", "install the NoNighter App". Not the workstation installer — that is workstation-init.
 ---
 
 # sync-skills
@@ -11,14 +11,18 @@ version is published, for users with an active NoNighter licence. Nothing is sto
 credential is kept: the MCP authenticates, the packages download straight from S3 through links that
 expire in about 15 minutes.
 
+The same sync delivers **mods**: packages that change Claude's own interface rather than teach it a
+task. The NoNighter App is one. See [Mods](#mods-the-nonighter-app) for the one way they differ.
+
 ## Procedure
 
 1. **Ask the store.** Call the MCP tool `skills-provision` with no arguments. It is served by NoNighter's
    MCP server, which may appear in this session under more than one name — the plugin's own `nonighter`
    connection, or a `nonighter`/`nonighter-dev` connector the user added to their account. **Any of them
    is fine: look for the tool by name across every connected NoNighter server.** It answers with a
-   manifest: a `skills` list of `{name, version, kind, sha256, size, url}`. Save that JSON, exactly as
-   returned, to a temporary file (`manifest.json` in the session's scratch folder is fine).
+   manifest: a `skills` list of `{name, version, kind, sha256, size, url}`, where `kind` is `skill` or
+   `mod`. Save that JSON, exactly as returned, to a temporary file (`manifest.json` in the session's
+   scratch folder is fine).
    - **Tool not found anywhere** → do not say the connector is "not authorised": you cannot know that.
      Two things cause it, and one message covers both: *"I can't reach NoNighter's skill store from this
      session. Check Settings → Plugins → NoNighter → Connectors: if it says Connect, connect it. Then open
@@ -48,6 +52,8 @@ expire in about 15 minutes.
    **they show up in the skills list from the next session.** If the user asks for modeling work *in
    this session*, do not say the skill is missing: open `${CLAUDE_PLUGIN_ROOT}/skills/<name>/SKILL.md`
    and follow it as if the skill had been invoked. Never quote paths, hashes, or the word "manifest".
+   **If the script printed a NOTE about the NoNighter App** (installed, updated or removed), add one
+   line: *"To see the change, type `/reload-plugins`, or open a new session."*
 
 ## What the script refuses, and what to say
 
@@ -55,6 +61,15 @@ expire in about 15 minutes.
   blindly; it is a store problem, not a network one.
 - **REFUSED … already ships in the plugin** — a downloaded package carries the name of a shell skill.
   Nothing is overwritten. Tell the user NoNighter has to rename that package.
+- **REFUSED … kind '…' is not one this plugin installs** — the store sent something this version of the
+  plugin does not know. Nothing was installed for it; the rest of the sync went ahead. Tell the user an
+  update of the NoNighter plugin is needed for that item.
+- **REFUSED … this plugin does not load a mod named …** — same as above: a newer NoNighter plugin is
+  needed for it. Nothing was installed for it.
+- **FAILED … left as it was** (a mod whose zip is broken, has no `hooks/register.tsx` or `build.json`, a
+  version that differs from the store's, a root `SKILL.md`) — a store problem, like a hash mismatch.
+  The new package was checked aside and never put in place, so the App the user had keeps working (or
+  the empty stand-in stays, if there was none). The rest of the sync went ahead; report it and do not retry.
 - **download failed: HTTP 403** — the links expired. Re-run from step 1.
 - **The tool is missing although the user says the connector is connected** — they are probably right; this
   session's tool list predates the connection or the server's latest deploy. Say so, and that a new session fixes it.
@@ -66,3 +81,25 @@ network, when a plugin update rebuilt the plugin folder. It calls for this skill
 was ever synced on this machine — then run it **right away, before the user's request, without asking**
 — or the last sync is older than seven days — then **offer** it once, at the end of the first turn, after
 answering, and never gate the user's work on it.
+
+When the hook restored the NoNighter App, its notice says so: pass on the one line it asks for
+(`/reload-plugins`, or a new session). That is not a fault and needs no sync.
+
+## Mods (the NoNighter App)
+
+A mod is a package of `kind: "mod"`: a hooks module (`hooks/register.tsx`) plus a `build.json` that
+carries its version, and whatever else it needs. It installs to `mods/<name>/` inside this plugin, not
+under `skills/`, and runs as part of the `nonighter` plugin.
+
+- **The plugin ships an empty stand-in there.** Its `hooks.json` names the mod's module, so the folder
+  must never be empty: an unlicensed install would otherwise show the plugin as "failed to load". The
+  stand-in carries a `.placeholder` file; the sync replaces that folder, and puts the stand-in back when
+  the mod is removed or uninstalled. A mod folder without `.placeholder` that the sync did not install
+  is never overwritten.
+- **It appears after a reload, not at once.** Claude loads a plugin's modules when plugins load, before
+  any hook runs. So after this sync installs or updates the App, and after the hook restores it on a
+  rebuilt plugin folder, the user sees it once they type `/reload-plugins` or open a new session.
+- **Cowork:** the plugin folder is rebuilt at the start of every Cowork session, and Claude has loaded
+  the stand-in before the hook can restore the App. The App therefore never stays loaded there from one
+  session to the next: each session needs a `/reload-plugins` to show it, where that command is
+  available. (Not tested in Cowork itself; this follows from the load order measured in Claude Code.)

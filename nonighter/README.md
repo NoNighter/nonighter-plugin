@@ -1,18 +1,21 @@
 # NoNighter plugin — how it works
 
-The plugin is a **bootstrap, and only that**. It ships three things: the connector to NoNighter's
-server, a SessionStart hook, and `sync-skills`. Everything a user actually works with — the modeling
-skills, the presentation skills, the workstation installer, the document import — is fetched per
-licence and installed on their machine. Nothing about what a licence includes is written here, so a
-skill added or retired in the store needs no release of this plugin.
+The plugin is a **bootstrap, and only that**. It ships the connector to NoNighter's server, a
+SessionStart hook, `sync-skills`, and an empty stand-in for the NoNighter App. Everything a user
+actually works with — the modeling skills, the presentation skills, the workstation installer, the
+document import, the App — is fetched per licence and installed on their machine. Nothing about what a
+licence includes is written here, so a skill added or retired in the store needs no release of this
+plugin.
 
 ## What ships
 
 | Piece | What it does |
 |-------|--------------|
 | `.mcp.json` | The connector. Names the NoNighter server this build talks to; the URL is per environment and set at release time |
-| `hooks/check_workstation.py` | On every session start: re-installs synced skills the plugin folder lost, says when nothing has ever been synced, and hands over to the workstation skill when the licence includes one |
-| `skills/sync-skills` | Fetches the skills the licence covers, through the MCP tool `skills-provision`, and installs them under `skills/` |
+| `hooks/check_workstation.py` | On every session start: re-installs synced skills and mods the plugin folder lost, says when nothing has ever been synced, and hands over to the workstation skill when the licence includes one |
+| `hooks/hooks.json` | That hook, and `modules`: the App's hooks module at `../mods/noni-app/hooks/register.tsx` |
+| `skills/sync-skills` | Fetches what the licence covers, through the MCP tool `skills-provision`, and installs skills under `skills/` and mods under `mods/` |
+| `mods/noni-app/` | The placeholder: an empty module, an empty types contract and a `.placeholder` flag. Present so an unlicensed install loads clean instead of "failed to load". `plugin.json` names its `types/index.d.ts` as the plugin's types contract, because the App keeps `$.state` and validation holds state keys to that contract. Identical to `skills/sync-skills/mod-placeholder/`, the copy the sync puts back |
 
 Fetched, not shipped: whatever the licence includes, named by the store rather than here. Each lands
 under `skills/<name>/` on the user's machine — the same folder a shipped skill would occupy — and is
@@ -36,6 +39,37 @@ listed as `nonighter:<name>` from the next session.
 
 Skills installed mid-session are listed from the next session; the hook tells the session to read the
 installed `SKILL.md` directly if work is asked for in the meantime.
+
+## Mods
+
+A catalogue item of `kind: "mod"` is a hooks module rather than a skill: a zip whose root holds
+`hooks/register.tsx` and a `build.json` whose `"version"` equals the store's, and no root `SKILL.md`.
+It installs to `mods/<name>/` and runs inside the plugin named `nonighter`. Today there is one, the
+NoNighter App (`noni-app`). Any other `kind` is refused, never installed as a skill; only an absent
+`kind` means skill. A mod is installed only under a name `hooks.json` loads (`../mods/<name>/hooks/register.tsx`).
+
+An update is unpacked and checked in a staging folder beside `mods/<name>/`, and replaces the folder by a
+rename only once it passes. A broken or mismatched package therefore never touches the App that works;
+the receipt and the cached zip keep the previous version, so the hook can still restore it.
+
+1. **Placeholder.** The plugin ships `mods/noni-app/` as an empty stand-in flagged by `.placeholder`,
+   because `hooks.json` names that module and a missing module marks the whole plugin "failed to load".
+   A folder holding `.placeholder` is the one shipped folder the sync may overwrite; removing or
+   uninstalling the mod puts the stand-in back. "Installed" means `hooks/register.tsx` is there and
+   `.placeholder` is not.
+2. **Reload.** Claude reads a plugin's modules when plugins load, which is before the SessionStart
+   hook runs. A mod installed by the sync, or restored by the hook after a plugin rebuild, is therefore
+   on disk but not loaded in that session: it appears after `/reload-plugins` (no reinstall needed) or
+   in the next session. The sync's output and the hook's notice both say so.
+3. **Cowork.** The plugin folder is rebuilt every Cowork session, and the stand-in loads before the
+   hook restores the App, so the App never stays loaded across Cowork sessions; each one needs a
+   reload. Not tested in Cowork itself.
+4. **Claude Code version.** The App's module loads on Claude Code **2.1.299 or newer**. Older versions
+   never break the plugin over it: before 2.1.250 the `modules` key is ignored; from 2.1.250 to 2.1.296
+   the App's module is not loaded (validation reports it; 2.1.260 to 2.1.296 log "failed to load") and the
+   rest of the plugin — skills, connector, this hook — loads as usual. The shipped placeholder loads clean on every version tested (2.1.150 to 2.1.309).
+   On versions where modules sit behind the `tengu_plugin_hooks_modules` rollout flag, an account with
+   the flag off loads no module at all, the App included, and the rest works the same way.
 
 ## The workstation
 

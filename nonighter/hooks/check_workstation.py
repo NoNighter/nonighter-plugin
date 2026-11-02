@@ -1,16 +1,23 @@
 #!/usr/bin/env python3
 """SessionStart for the NoNighter plugin: restore what was synced, then hand over to the workstation.
 
-This plugin ships a connector, this hook and `sync-skills`, and nothing else. Everything a client
-actually works with - the modeling skills, the presentation skills, the workstation installer, the
-document import - arrives per licence through `sync-skills` and installs under `skills/<name>/`,
-the same folder a shipped skill would occupy.
+This plugin ships a connector, this hook, `sync-skills` and an empty placeholder mod, and nothing
+else. Everything a client actually works with - the modeling skills, the presentation skills, the
+workstation installer, the document import - arrives per licence through `sync-skills` and installs
+under `skills/<name>/`, the same folder a shipped skill would occupy. The NoNighter App arrives the
+same way as a mod, a hooks module that changes Claude's own interface, and installs under
+`mods/<name>/` over the placeholder.
 
 So this hook does two things, in order:
 
-  1. **Its own bootstrap.** Re-copy receipted skills that a plugin-version rebuild dropped, and say
-     something when nothing has ever been synced here or the last sync has gone stale. That is this
-     plugin's own business and it runs whatever the licence turns out to include.
+  1. **Its own bootstrap.** Re-copy receipted skills and mods that a plugin-version rebuild dropped,
+     and say something when nothing has ever been synced here or the last sync has gone stale. That is
+     this plugin's own business and it runs whatever the licence turns out to include.
+
+     A restored mod is not on screen yet, and the notice says so. Claude reads modules when plugins
+     load, which is before this hook runs, so this session loaded the placeholder; the mod it just put
+     back loads on `/reload-plugins` or in the next session. Skills are different: Claude lists them
+     after this hook, so a restored skill is available at once.
 
   2. **Hand over to `skills/workstation-init/scripts/session_start.py`, if it is there.** That skill
      owns the workstation - finding it, loading what its router declares, the upgrade offer, the
@@ -41,7 +48,7 @@ PLUGIN_ROOT = Path(__file__).resolve().parent.parent
 # The modeling skills are not in this plugin: `sync-skills` fetches them for a licensed user and
 # installs them under skills/. That folder is rebuilt on every plugin version (and per session in
 # Cowork), so this hook re-copies receipted skills from the local zip cache when they are missing -
-# no network, no model - before Claude enumerates skills.
+# no network, no model - before Claude enumerates skills. Mods under mods/ are re-copied the same way.
 SYNC_STALE_AFTER_DAYS = 7
 
 
@@ -67,23 +74,48 @@ def sync_skills_notice() -> str:
                     "ask for modeling work in THIS session after the sync, read the installed SKILL.md under "
                     "skills/<name>/ directly and follow it - skills installed mid-session are listed from the "
                     "next session, not this one.")
-        restored, uncached = [], []
-        for item in ss.missing_skills(receipt, plugin_root):
+        restored, uncached, mods_back, mods_lost = [], [], [], []
+        for item in ss.missing_items(receipt, plugin_root):
+            is_mod = ss.kind_of(item) == "mod"
             z = ss.cached_zip(item, data_dir)
             if z and z.exists():
                 blob = z.read_bytes()
                 if ss.sha256(blob) == item["sha256"]:
-                    ss.install_blob(item, blob, plugin_root)
-                    restored.append(item["name"])
-                    continue
-            uncached.append(item["name"])
+                    # install_blob refuses a bad package with SystemExit, which `except Exception` below
+                    # does not catch: uncaught, it would end this hook with no JSON at all. A cached
+                    # package it refuses is treated as not cached, so the sync fetches it again.
+                    try:
+                        ss.install_blob(item, blob, plugin_root)
+                    except SystemExit:
+                        pass
+                    else:
+                        if is_mod:
+                            mods_back.append(ss.mod_title(item))
+                        else:
+                            restored.append(item["name"])
+                        continue
+            if is_mod:
+                mods_lost.append(ss.mod_title(item))
+            else:
+                uncached.append(item["name"])
         parts = []
+        if mods_back:
+            # First, because it is the one part the user has to act on to see anything.
+            parts.append("NoNighter: the plugin folder was rebuilt, so {} was put back from the local cache, but "
+                         "Claude had already loaded the plugin before that, so it is not on screen in this session. "
+                         "Tell the user in one line, in plain words: {} is restored; to see it, type /reload-plugins, "
+                         "or open a new session.".format(" and ".join(mods_back), " and ".join(mods_back)))
         if restored:
             parts.append("NoNighter skills: the plugin folder was rebuilt, so {} were re-installed from the local "
                          "cache before this session started; they are available now.".format(", ".join(restored)))
         if uncached:
             parts.append("NoNighter skills {} are recorded as installed but missing and not in the cache: run the "
                          "sync-skills skill now, without asking, to fetch them again.".format(", ".join(uncached)))
+        if mods_lost:
+            parts.append("NoNighter: {} is recorded as installed but missing and not in the cache: run the "
+                         "sync-skills skill now, without asking, to fetch it again. It appears after /reload-plugins "
+                         "or in a new session.".format(" and ".join(mods_lost)))
+        uncached = uncached + mods_lost
         age = None
         if receipt.get("synced_at"):
             try:
