@@ -21,6 +21,13 @@ your licence includes; they appear in the skills list from the next session.
 
 Requires Python on the machine (`py` on Windows, `python3` elsewhere).
 
+**The NoNighter App needs Claude Code 2.1.299 or newer.** On an older Claude Code the plugin still loads
+and works — the connector, the session hook and `sync-skills` — and the App simply does not appear:
+versions before 2.1.250 ignore the App's entry in `hooks.json`, and versions 2.1.250 to 2.1.296 do not
+load the App's module (validation reports it, a session skips it) and go on without it. Checked with `claude plugin validate` and a
+`--plugin-dir` load on 2.1.150, 2.1.200, 2.1.250, 2.1.260, 2.1.273, 2.1.280, 2.1.290, 2.1.293, 2.1.296,
+2.1.299, 2.1.300, 2.1.302, 2.1.304, 2.1.308 and 2.1.309.
+
 ## What is in the plugin
 
 Four things, and deliberately nothing else:

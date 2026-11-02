@@ -35,12 +35,19 @@ Commands (all take --plugin-root and --data-dir; defaults from CLAUDE_PLUGIN_ROO
 Guards:
   - a skill package must carry SKILL.md at its root, or it is not installed
   - a mod package must carry hooks/register.tsx and a build.json whose "version" is the manifest's, and
-    no root SKILL.md or .placeholder, or it is not installed and the placeholder goes back
+    no root SKILL.md or .placeholder, or it is not installed
+  - a mod is unpacked and checked in a staging folder beside its own, and only a package that passes
+    replaces what is there, by a rename. Anything that fails - a broken zip, a wrong version, any error -
+    leaves the folder as it was: the working App stays, or the placeholder where there was none
+  - a mod is installed only under a name the plugin's hooks.json loads (`../mods/<name>/hooks/register.tsx`);
+    any other is refused, because Claude would never load it
+  - an item that fails to install keeps its previous receipt entry and cached zip, so nothing is
+    recorded that is not on disk; the other items go ahead, and the run exits 1
   - an item whose folder already exists in the plugin and is NOT in the receipt is refused: it is one of
     the plugin's own, and a downloaded package never overwrites a shipped one. The one exception is a
     mod folder holding `.placeholder`: that folder was shipped to be replaced
   - a download whose sha256 differs from the manifest is refused, never retried blindly
-  - an item whose `kind` is neither skill nor mod is refused
+  - an item whose `kind` is neither skill nor mod is refused; only an absent `kind` means skill
   - remove touches only folders the receipt lists, and a removed mod leaves the placeholder behind
 
 Stdlib only: runs as `py` on Windows and `python3` elsewhere.
@@ -75,9 +82,10 @@ KINDS = {
 # mod is removed. The copy shipped under mods/ must stay identical to it.
 PLACEHOLDER_SRC = Path(__file__).resolve().parent.parent / "mod-placeholder"
 PLACEHOLDER_FLAG = ".placeholder"
-# How a mod is named to the user. A mod the store adds later and this plugin does not know yet is still
-# installed; it is just named less warmly.
+# How a mod is named to the user.
 MOD_TITLES = {"noni-app": "the NoNighter App"}
+# hooks.json names each mod's module at this path; a mod is installable only where one is named.
+MOD_MODULE_PREFIX, MOD_MODULE_SUFFIX = "../mods/", "/hooks/register.tsx"
 
 
 # ----------------------------------------------------------------------------- paths
@@ -131,7 +139,28 @@ def save_receipt(plugin_root: Path, data_dir: Path | None, tenant: str, items: d
 
 
 def kind_of(item: dict) -> str:
-    return item.get("kind") or "skill"
+    # Only an absent key means skill. A kind that is there but empty, null or not a string is malformed
+    # and must reach the refusal, not be installed as a skill by default.
+    if "kind" not in item:
+        return "skill"
+    kind = item["kind"]
+    return kind if isinstance(kind, str) else repr(kind)
+
+
+def registered_mods(plugin_root: Path) -> set[str]:
+    """The mod names this plugin's hooks.json loads. A mod named nowhere there would be installed and
+    never run, so only these are installed; an unreadable hooks.json means none."""
+    try:
+        modules = json.loads((plugin_root / "hooks" / "hooks.json").read_text(encoding="utf-8")).get("modules", [])
+    except (OSError, ValueError, AttributeError):
+        return set()
+    names = set()
+    for m in modules if isinstance(modules, list) else []:
+        if isinstance(m, str) and m.startswith(MOD_MODULE_PREFIX) and m.endswith(MOD_MODULE_SUFFIX):
+            name = m[len(MOD_MODULE_PREFIX):-len(MOD_MODULE_SUFFIX)]
+            if name and "/" not in name:
+                names.add(name)
+    return names
 
 
 def item_dir(item: dict, plugin_root: Path) -> Path:
@@ -233,21 +262,56 @@ def mod_problem(item: dict, dest: Path, files: list[str]) -> str:
     return ""
 
 
+def install_mod(item: dict, blob: bytes, dest: Path) -> Path:
+    """Put a mod in place only once it is known good; on any failure leave `dest` as it was.
+
+    The package is unpacked into a staging folder beside `dest` and checked there. Only then does it
+    replace `dest`, by two renames: the current folder aside, the staged one in. If the second rename
+    fails the first is undone. So an update that turns out bad never touches the App that was working,
+    and a first install that fails leaves the placeholder (put back if the folder had gone missing).
+    """
+    stage = dest.with_name(f".{dest.name}.incoming")
+    aside = dest.with_name(f".{dest.name}.previous")
+    # A run killed between the two renames leaves the working App aside and nothing in its place: put it
+    # back first. Any other leftover is never live and goes.
+    if aside.exists() and not dest.exists():
+        os.replace(aside, dest)
+    for leftover in (stage, aside):
+        if leftover.exists():
+            shutil.rmtree(leftover)
+    try:
+        try:
+            files = extract(blob, stage)  # its own refusals (zip-slip) are SystemExit and pass through
+        except Exception as e:  # a broken zip, a full disk, anything: the same refusal, never a crash
+            raise SystemExit(f"package could not be unpacked ({type(e).__name__}: {e})")
+        problem = mod_problem(item, stage, files)
+        if problem:
+            raise SystemExit(problem)
+        had = dest.exists()
+        if had:
+            os.replace(dest, aside)
+        try:
+            os.replace(stage, dest)
+        except OSError:
+            if had:
+                os.replace(aside, dest)
+            raise
+    except (SystemExit, Exception) as e:
+        if stage.exists():
+            shutil.rmtree(stage, ignore_errors=True)
+        if not dest.exists():
+            put_placeholder(dest)
+        reason = str(e) if isinstance(e, SystemExit) else f"{type(e).__name__}: {e}"
+        raise SystemExit(f"{item['name']}: {reason}; not installed, {mod_title(item)} left as it was")
+    if aside.exists():
+        shutil.rmtree(aside, ignore_errors=True)
+    return dest
+
+
 def install_blob(item: dict, blob: bytes, plugin_root: Path) -> Path:
     dest = item_dir(item, plugin_root)
     if kind_of(item) == "mod":
-        # Extracting clears the folder first, and any refusal below leaves it empty. For a mod that is the
-        # placeholder gone, so every way out of here that is not an install puts the placeholder back.
-        try:
-            files = extract(blob, dest)
-        except SystemExit:
-            put_placeholder(dest)
-            raise
-        problem = mod_problem(item, dest, files)
-        if problem:
-            put_placeholder(dest)
-            raise SystemExit(f"{item['name']}: {problem}; not installed")
-        return dest
+        return install_mod(item, blob, dest)
     files = extract(blob, dest)
     if "SKILL.md" not in files:
         shutil.rmtree(dest)
@@ -257,7 +321,8 @@ def install_blob(item: dict, blob: bytes, plugin_root: Path) -> Path:
 
 def remove_item(item: dict, plugin_root: Path) -> Path:
     dest = item_dir(item, plugin_root)
-    if kind_of(item) == "mod":
+    # A registered mod's folder is named by hooks.json and must never be empty: the placeholder goes back.
+    if kind_of(item) == "mod" and item["name"] in registered_mods(plugin_root):
         put_placeholder(dest)
     elif dest.exists():
         shutil.rmtree(dest)
@@ -265,9 +330,11 @@ def remove_item(item: dict, plugin_root: Path) -> Path:
 
 
 def missing_items(receipt: dict, plugin_root: Path) -> list[dict]:
-    # An item of a kind this plugin does not know can only come from a newer plugin's receipt; it is left
-    # alone rather than restored into a folder chosen by guess.
-    return [i for i in receipt["items"].values() if kind_of(i) in KINDS and not is_installed(i, plugin_root)]
+    # An item of a kind this plugin does not know, or a mod its hooks.json does not load, can only come
+    # from another plugin version's receipt; it is left alone rather than restored where nothing runs it.
+    mods = registered_mods(plugin_root)
+    return [i for i in receipt["items"].values() if kind_of(i) in KINDS
+            and (kind_of(i) != "mod" or i["name"] in mods) and not is_installed(i, plugin_root)]
 
 
 # ----------------------------------------------------------------------------- commands
@@ -288,6 +355,7 @@ def cmd_apply(a) -> int:
     wanted = {m["name"]: m for m in entries if m["name"] not in duplicated}
     plan, refused = [], []
     carried = {}  # receipt entries left exactly as they were, because what replaces them was refused
+    mods = registered_mods(plugin_root)
     for m in entries:
         if m["name"] in duplicated:
             refused.append((m, "listed more than once in the manifest; ambiguous, nothing installed under it"))
@@ -296,6 +364,13 @@ def cmd_apply(a) -> int:
         if kind_of(m) not in KINDS:
             refused.append((m, f"kind {m.get('kind')!r} is not one this plugin installs ({', '.join(KINDS)}); "
                                f"nothing installed - a newer NoNighter plugin is needed for it"))
+            if prev:
+                carried[name] = prev
+            continue
+        if kind_of(m) == "mod" and name not in mods:
+            refused.append((m, f"this plugin does not load a mod named {name!r} (it loads: "
+                               f"{', '.join(sorted(mods)) or 'none'}); nothing installed - a newer NoNighter "
+                               f"plugin is needed for it"))
             if prev:
                 carried[name] = prev
             continue
@@ -335,20 +410,35 @@ def cmd_apply(a) -> int:
         return 0
 
     new_items = dict(carried)
+    failed = []
     for action, m, dest in plan:
         if action == "remove":
             remove_item(m, plugin_root)
             continue
         if action != "keep":
-            blob = download(m["url"])
-            got = sha256(blob)
-            if got != m["sha256"]:
-                raise SystemExit(f"{m['name']}: sha256 mismatch (manifest {m['sha256'][:12]}, got {got[:12]}); not installed")
+            # One item failing never takes the others down, and never records what is not on disk: the
+            # receipt keeps the item's previous entry (and the cleanup below its cached zip), so the
+            # session hook can still restore the version that worked.
+            try:
+                blob = download(m["url"])
+                got = sha256(blob)
+                if got != m["sha256"]:
+                    raise SystemExit(f"{m['name']}: sha256 mismatch (manifest {m['sha256'][:12]}, got {got[:12]}); not installed")
+                install_blob(m, blob, plugin_root)
+            except (SystemExit, Exception) as e:
+                why = str(e) if isinstance(e, SystemExit) else f"{m['name']}: {type(e).__name__}: {e}; not installed"
+                print(f"  FAILED   {m['name']}@{m['version']}  - {why}")
+                failed.append(m["name"])
+                prev = receipt["items"].get(m["name"])
+                if prev and kind_of(prev) == kind_of(m):
+                    new_items[m["name"]] = prev
+                continue
+            # The cache is written only for a package that installed, so a bad one never stands in for a
+            # good one on the next restore.
             cache = cached_zip(m, data_dir)
             if cache:
                 cache.parent.mkdir(parents=True, exist_ok=True)
                 cache.write_bytes(blob)
-            install_blob(m, blob, plugin_root)
             print(f"  wrote    {m['name']}@{m['version']} -> {dest}")
         new_items[m["name"]] = {k: m[k] for k in ("name", "version", "sha256")} | {"kind": kind_of(m)}
 
@@ -359,13 +449,14 @@ def cmd_apply(a) -> int:
                 z.unlink()
 
     print(f"receipt     : {save_receipt(plugin_root, data_dir, tenant, new_items)}")
-    changed = [m["name"] for act, m, _ in plan if act in ("install", "update") and kind_of(m) == "skill"]
+    done = [(act, m) for act, m, _ in plan if act in ("install", "update") and m["name"] not in failed]
+    changed = [m["name"] for act, m in done if kind_of(m) == "skill"]
     if changed:
         print(f"NOTE: {', '.join(changed)} installed. Claude lists skills when a session starts, so they appear as "
               f"skills from the NEXT session; in this one, read each skill's SKILL.md directly if it is needed.")
     # Claude reads modules when plugins load, before any hook runs, so a mod changed now - installed,
     # updated or removed - shows its new state only once plugins load again.
-    mods_in = [mod_title(m) for act, m, _ in plan if act in ("install", "update") and kind_of(m) == "mod"]
+    mods_in = [mod_title(m) for act, m in done if kind_of(m) == "mod"]
     mods_out = [mod_title(m) for act, m, _ in plan if act == "remove" and kind_of(m) == "mod"]
     if mods_in:
         print(f"NOTE: {', '.join(mods_in)} installed. Claude loads it when plugins load, so it appears after "
@@ -373,6 +464,9 @@ def cmd_apply(a) -> int:
     if mods_out:
         print(f"NOTE: {', '.join(mods_out)} removed. It stays on screen until the user types /reload-plugins, "
               f"or opens a new session.")
+    if failed:
+        print(f"FAILED: {', '.join(failed)} not installed; what was there before is unchanged.")
+        return 1
     return 0
 
 
@@ -386,7 +480,11 @@ def cmd_restore(a) -> int:
         if z and z.exists():
             blob = z.read_bytes()
             if sha256(blob) == item["sha256"]:
-                install_blob(item, blob, plugin_root)
+                try:
+                    install_blob(item, blob, plugin_root)
+                except SystemExit:  # a cached package refused now is as good as not cached
+                    uncached.append(item["name"])
+                    continue
                 restored.append(item["name"])
                 if kind_of(item) == "mod":
                     reload.append(item["name"])

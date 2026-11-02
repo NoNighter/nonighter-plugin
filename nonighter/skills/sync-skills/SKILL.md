@@ -64,9 +64,12 @@ task. The NoNighter App is one. See [Mods](#mods-the-nonighter-app) for the one 
 - **REFUSED … kind '…' is not one this plugin installs** — the store sent something this version of the
   plugin does not know. Nothing was installed for it; the rest of the sync went ahead. Tell the user an
   update of the NoNighter plugin is needed for that item.
-- **A mod package refused** (no `hooks/register.tsx`, no `build.json`, its version differs from the
-  store's, a root `SKILL.md`) — a store problem, like a hash mismatch. The App's folder is back to the
-  empty stand-in, so nothing is broken; report it and do not retry.
+- **REFUSED … this plugin does not load a mod named …** — same as above: a newer NoNighter plugin is
+  needed for it. Nothing was installed for it.
+- **FAILED … left as it was** (a mod whose zip is broken, has no `hooks/register.tsx` or `build.json`, a
+  version that differs from the store's, a root `SKILL.md`) — a store problem, like a hash mismatch.
+  The new package was checked aside and never put in place, so the App the user had keeps working (or
+  the empty stand-in stays, if there was none). The rest of the sync went ahead; report it and do not retry.
 - **download failed: HTTP 403** — the links expired. Re-run from step 1.
 - **The tool is missing although the user says the connector is connected** — they are probably right; this
   session's tool list predates the connection or the server's latest deploy. Say so, and that a new session fixes it.

@@ -45,7 +45,12 @@ installed `SKILL.md` directly if work is asked for in the meantime.
 A catalogue item of `kind: "mod"` is a hooks module rather than a skill: a zip whose root holds
 `hooks/register.tsx` and a `build.json` whose `"version"` equals the store's, and no root `SKILL.md`.
 It installs to `mods/<name>/` and runs inside the plugin named `nonighter`. Today there is one, the
-NoNighter App (`noni-app`). Any other `kind` is refused, never installed as a skill.
+NoNighter App (`noni-app`). Any other `kind` is refused, never installed as a skill; only an absent
+`kind` means skill. A mod is installed only under a name `hooks.json` loads (`../mods/<name>/hooks/register.tsx`).
+
+An update is unpacked and checked in a staging folder beside `mods/<name>/`, and replaces the folder by a
+rename only once it passes. A broken or mismatched package therefore never touches the App that works;
+the receipt and the cached zip keep the previous version, so the hook can still restore it.
 
 1. **Placeholder.** The plugin ships `mods/noni-app/` as an empty stand-in flagged by `.placeholder`,
    because `hooks.json` names that module and a missing module marks the whole plugin "failed to load".
@@ -59,6 +64,12 @@ NoNighter App (`noni-app`). Any other `kind` is refused, never installed as a sk
 3. **Cowork.** The plugin folder is rebuilt every Cowork session, and the stand-in loads before the
    hook restores the App, so the App never stays loaded across Cowork sessions; each one needs a
    reload. Not tested in Cowork itself.
+4. **Claude Code version.** The App's module loads on Claude Code **2.1.299 or newer**. Older versions
+   never break the plugin over it: before 2.1.250 the `modules` key is ignored; from 2.1.250 to 2.1.296
+   the App's module is not loaded (validation reports it; 2.1.260 to 2.1.296 log "failed to load") and the
+   rest of the plugin — skills, connector, this hook — loads as usual. The shipped placeholder loads clean on every version tested (2.1.150 to 2.1.309).
+   On versions where modules sit behind the `tengu_plugin_hooks_modules` rollout flag, an account with
+   the flag off loads no module at all, the App included, and the rest works the same way.
 
 ## The workstation
 
