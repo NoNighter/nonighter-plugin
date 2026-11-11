@@ -39,15 +39,28 @@ expire in about 15 minutes.
    empty on this surface, omit `--data-dir`; the script then works without a cache.)
 
 3. **Run it** — the same command without `--check`. Do not ask for confirmation when the plan only
-   installs or updates: nothing of the user's is touched and nothing is asked of them. **Do ask** before
+   installs, updates or moves: nothing of the user's is touched and nothing is asked of them. **Do ask** before
    a `remove`, since it deletes a skill they may rely on.
+
+   **Where they go.** When the user has a NoNighter workstation, the skills are installed in it, under
+   `<workstation>/.claude/skills/<name>/`, so they can see them and adapt them. A plan line `move` takes
+   a skill installed before workstations out of the plugin and into the workstation. Without a
+   workstation, they go into the plugin as before. Run the command from the workstation folder (or pass
+   `--workstation <folder>`), or the script will not find it.
+
+   **What the user changed is theirs.** The script never overwrites or removes a skill the user edited:
+   - `modified` means a new version exists and their copy was left alone. Tell them in one line that
+     an update is waiting for a skill they adapted, and that it is not applied, so nothing of theirs is lost.
+   - `kept` means a skill is no longer licensed but they changed it, so it stays.
+   - `deleted` means they deleted the skill from their workstation, and it is not brought back. If they
+     want it, run again with `--reinstall <name>`.
 
 4. **Report in one or two lines, in the user's terms.** Name what the sync actually installed, from
    the manifest it returned -- never a list written down anywhere, which goes stale the moment the
    store changes. "Your NoNighter skills are installed: <names>." Then the one fact that matters:
    **they show up in the skills list from the next session.** If the user asks for modeling work *in
-   this session*, do not say the skill is missing: open `${CLAUDE_PLUGIN_ROOT}/skills/<name>/SKILL.md`
-   and follow it as if the skill had been invoked. Never quote paths, hashes, or the word "manifest".
+   this session*, do not say the skill is missing: open the `SKILL.md` in the folder the script printed
+   for it, and follow it as if the skill had been invoked. Never quote paths, hashes, or the word "manifest".
 
 ## What the script refuses, and what to say
 

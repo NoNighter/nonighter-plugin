@@ -3,8 +3,10 @@
 
 This plugin ships a connector, this hook and `sync-skills`, and nothing else. Everything a client
 actually works with - the modeling skills, the presentation skills, the workstation installer, the
-document import - arrives per licence through `sync-skills` and installs under `skills/<name>/`,
-the same folder a shipped skill would occupy.
+document import - arrives per licence through `sync-skills`. It installs into the user's workstation
+(`<workstation>/.claude/skills/<name>/`) when there is one, and otherwise under the plugin's own
+`skills/<name>/`, the same folder a shipped skill would occupy. The workstation installer always
+stays in the plugin.
 
 So this hook does two things, in order:
 
@@ -67,8 +69,12 @@ def sync_skills_notice() -> str:
                     "ask for modeling work in THIS session after the sync, read the installed SKILL.md under "
                     "skills/<name>/ directly and follow it - skills installed mid-session are listed from the "
                     "next session, not this one.")
-        restored, uncached = [], []
+        restored, uncached, removed = [], [], []
         for item in ss.missing_skills(receipt, plugin_root):
+            if not ss.in_plugin(item, plugin_root):
+                # Workstation skills are never rebuilt by Claude: a missing one was deleted by the user.
+                removed.append(item["name"])
+                continue
             z = ss.cached_zip(item, data_dir)
             if z and z.exists():
                 blob = z.read_bytes()
@@ -84,6 +90,18 @@ def sync_skills_notice() -> str:
         if uncached:
             parts.append("NoNighter skills {} are recorded as installed but missing and not in the cache: run the "
                          "sync-skills skill now, without asking, to fetch them again.".format(", ".join(uncached)))
+        if removed:
+            parts.append("NoNighter skills {} were deleted from the user's workstation. Do not reinstall them "
+                         "unasked; if the user wants one back, sync-skills reinstalls it.".format(", ".join(removed)))
+        home = receipt.get("workstation")
+        if home and receipt["items"]:
+            here = Path(os.environ.get("CLAUDE_PROJECT_DIR") or os.getcwd()).resolve()
+            if not (here == Path(home).resolve() or Path(home).resolve() in here.parents):
+                parts.append("NoNighter skills live in the user's workstation at {} and this session was opened "
+                             "elsewhere, so they are not in its skills list. If the user asks for NoNighter work, "
+                             "read {}/.claude/skills/<name>/SKILL.md and follow it, and say in one line that "
+                             "opening Claude in their workstation folder gives them the skills directly."
+                             .format(home, home))
         age = None
         if receipt.get("synced_at"):
             try:
