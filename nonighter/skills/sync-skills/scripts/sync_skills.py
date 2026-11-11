@@ -33,6 +33,10 @@ Commands (all take --plugin-root and --data-dir; defaults from CLAUDE_PLUGIN_ROO
     restore                           re-copy receipted skills whose folder vanished, from the zip cache
     status                            JSON: receipt present, age, missing skill folders, what is restorable
     uninstall                         remove everything the receipt lists, then the receipt
+    merge-prep NAME                   a new version waits for a skill the user changed: back up their copy,
+                                      lay out the installed and the new version, and classify every file
+    merge-done NAME                   after the merge: the skill is now on the new version, still the user's
+    replace NAME                      take the new version as is, after backing up the user's copy
 
 Guards:
   - a package must carry SKILL.md at its root, or it is not installed
@@ -63,6 +67,8 @@ from pathlib import Path
 
 RECEIPT = "sync-skills-receipt.json"
 PACKAGES = "packages"
+MERGE = "merge"
+BACKUPS = "skill-backups"
 DEFAULT_DATA_DIR = Path.home() / ".claude" / "plugins" / "data" / "nonighter"
 WORKSTATION_MARKER = Path(".nonighter") / "instance.json"
 # Infrastructure, not the user's to adapt: stays in the plugin even when a workstation exists.
@@ -392,6 +398,102 @@ def cmd_status(a) -> int:
     return 0
 
 
+def zip_files(blob: bytes) -> dict:
+    with zipfile.ZipFile(io.BytesIO(blob)) as z:
+        return {i.filename: z.read(i) for i in z.infolist() if not i.is_dir()}
+
+
+def waiting(name: str, plugin_root: Path, data_dir: Path | None) -> tuple[dict, dict, bytes, bytes]:
+    """The receipt, the item, the installed version's zip and the waiting one, both checked."""
+    receipt = load_receipt(plugin_root, data_dir)
+    item = receipt["items"].get(name)
+    if not item or not item.get("available"):
+        raise SystemExit(f"{name}: no new version is waiting for this skill")
+    blobs = []
+    for ref in (item, item["available"] | {"name": name}):
+        z = cached_zip(ref, data_dir)
+        if not z or not z.exists() or sha256(z.read_bytes()) != ref["sha256"]:
+            raise SystemExit(f"{name}@{ref['version']}: not in the local cache; run the sync again first")
+        blobs.append(z.read_bytes())
+    return receipt, item, blobs[0], blobs[1]
+
+
+def backup(item: dict, plugin_root: Path, data_dir: Path | None) -> Path:
+    """Copy the user's version aside before anything touches it: in their workstation, where they can see it."""
+    dest = skill_dir(item, plugin_root)
+    ws = find_workstation(dest)
+    base = (ws / ".nonighter" / BACKUPS) if ws else ((data_dir or plugin_root) / BACKUPS)
+    out = base / f"{item['name']}-{item['version']}-{datetime.now().strftime('%Y%m%d-%H%M%S')}"
+    shutil.copytree(dest, out)
+    return out
+
+
+def finish(receipt: dict, item: dict, new_blob: bytes, plugin_root: Path, data_dir: Path | None) -> None:
+    """Record the skill as on the waiting version. `files` is the new version as published, so a
+    copy that still carries the user's changes keeps reading as changed - which it is."""
+    avail = item.pop("available")
+    item.update(version=avail["version"], sha256=avail["sha256"],
+                files={k: hashlib.sha256(v).hexdigest() for k, v in sorted(zip_files(new_blob).items())})
+    item.pop("deleted_by_user", None)
+    ws = receipt.get("workstation")
+    save_receipt(plugin_root, data_dir, receipt["tenant"], receipt["items"], Path(ws) if ws else None)
+    if data_dir and (data_dir / MERGE / item["name"]).exists():
+        shutil.rmtree(data_dir / MERGE / item["name"])
+
+
+def cmd_merge_prep(a) -> int:
+    plugin_root = resolve_plugin_root(a.plugin_root)
+    data_dir = resolve_data_dir(a.data_dir, plugin_root)
+    if not data_dir:
+        raise SystemExit("no data folder on this surface: a merge needs the cached versions")
+    _, item, base_blob, new_blob = waiting(a.name, plugin_root, data_dir)
+    user = skill_dir(item, plugin_root)
+    stage = data_dir / MERGE / a.name
+    if stage.exists():
+        shutil.rmtree(stage)
+    extract(base_blob, stage / "installed")
+    extract(new_blob, stage / "new")
+    saved = backup(item, plugin_root, data_dir)
+    b = {k: hashlib.sha256(v).hexdigest() for k, v in zip_files(base_blob).items()}
+    n = {k: hashlib.sha256(v).hexdigest() for k, v in zip_files(new_blob).items()}
+    u = file_hashes(user)
+    files = {"take_new": [], "keep_user": [], "both_changed": []}
+    for rel in sorted(set(b) | set(n) | set(u)):
+        bs, ns, us = b.get(rel), n.get(rel), u.get(rel)
+        if ns == us:
+            continue                                   # already the same on both sides
+        if bs == us:
+            files["take_new"].append(rel)              # only NoNighter changed it (or added / removed it)
+        elif bs == ns:
+            files["keep_user"].append(rel)             # only the user changed it
+        else:
+            files["both_changed"].append(rel)          # both did: merge by hand, ask when unclear
+    print(json.dumps({"skill": a.name, "from": item["version"], "to": item["available"]["version"],
+                      "user_copy": str(user), "installed": str(stage / "installed"), "new": str(stage / "new"),
+                      "backup": str(saved), "files": files}, indent=2))
+    return 0
+
+
+def cmd_merge_done(a) -> int:
+    plugin_root = resolve_plugin_root(a.plugin_root)
+    data_dir = resolve_data_dir(a.data_dir, plugin_root)
+    receipt, item, _, new_blob = waiting(a.name, plugin_root, data_dir)
+    finish(receipt, item, new_blob, plugin_root, data_dir)
+    print(f"{a.name} is now on {item['version']}, with the user's changes")
+    return 0
+
+
+def cmd_replace(a) -> int:
+    plugin_root = resolve_plugin_root(a.plugin_root)
+    data_dir = resolve_data_dir(a.data_dir, plugin_root)
+    receipt, item, _, new_blob = waiting(a.name, plugin_root, data_dir)
+    saved = backup(item, plugin_root, data_dir)
+    install_blob(item, new_blob, plugin_root)
+    finish(receipt, item, new_blob, plugin_root, data_dir)
+    print(f"{a.name} replaced by {item['version']}; the user's copy is saved at {saved}")
+    return 0
+
+
 def cmd_uninstall(a) -> int:
     plugin_root = resolve_plugin_root(a.plugin_root)
     data_dir = resolve_data_dir(a.data_dir, plugin_root)
@@ -425,6 +527,8 @@ def main() -> int:
     sub.add_parser("restore").set_defaults(fn=cmd_restore)
     sub.add_parser("status").set_defaults(fn=cmd_status)
     sub.add_parser("uninstall").set_defaults(fn=cmd_uninstall)
+    for cmd, fn in (("merge-prep", cmd_merge_prep), ("merge-done", cmd_merge_done), ("replace", cmd_replace)):
+        q = sub.add_parser(cmd); q.add_argument("name"); q.set_defaults(fn=fn)
     a = ap.parse_args()
     return a.fn(a)
 

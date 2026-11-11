@@ -72,10 +72,37 @@ expire in about 15 minutes.
 - **The tool is missing although the user says the connector is connected** — they are probably right; this
   session's tool list predates the connection or the server's latest deploy. Say so, and that a new session fixes it.
 
+## Merging an update the user adapted
+
+When the plan says `modified`, the user changed a skill and a new version is waiting. **Ask first**, in
+one line: a new version of <skill> is out, they adapted theirs, do they want it brought in keeping their
+changes? Nothing is touched until they say yes. If they say no, leave it: the hook will remind them.
+
+1. **Prepare.** `... sync_skills.py ... merge-prep <name>` (same `--plugin-root` / `--data-dir` as above).
+   It saves a backup of the user's copy first, then prints JSON: the user's copy, the `installed`
+   version they started from, the `new` one, the `backup` path, and every file that differs, sorted:
+   - `take_new` — only NoNighter changed it (or added or removed it): copy it from `new` into the user's
+     copy (or delete it there).
+   - `keep_user` — only the user changed it: leave it.
+   - `both_changed` — both did. Read the three versions (`installed`, `new`, the user's) and write the
+     user's file so it has NoNighter's change **and** theirs. **When the two changes touch the same thing,
+     or you are not sure which should win, ask the user** — show what each side changed in plain words,
+     never a diff.
+2. **Close.** `... merge-done <name>`. The skill is recorded on the new version, still as theirs.
+3. **Report** in one or two lines: what NoNighter's update brought, that their changes are kept, and
+   where the backup is, in case they want to look back.
+
+If they would rather drop their changes and take the new version as it comes: `... replace <name>`
+(their copy is backed up first). Confirm that with them: it undoes their work.
+
 ## When the hook triggers this
 
 The SessionStart hook restores previously synced skills from the local cache by itself, without
-network, when a plugin update rebuilt the plugin folder. It calls for this skill in two cases: nothing
-was ever synced on this machine — then run it **right away, before the user's request, without asking**
-— or the last sync is older than seven days — then **offer** it once, at the end of the first turn, after
-answering, and never gate the user's work on it.
+network, when a plugin update rebuilt the plugin folder. A skill missing from the user's workstation
+was deleted by them and is not restored. It calls for this skill in three cases:
+- **Nothing was ever synced on this machine:** run it **right away, before the user's request, without
+  asking**.
+- **The last check was a day or more ago:** new versions only show up by asking the store. Run it
+  **quietly at the end of your first answer**, without asking, and never gate the user's work on it.
+- **A new version is waiting for a skill the user adapted:** offer the merge above, once, at the end of
+  the first answer.

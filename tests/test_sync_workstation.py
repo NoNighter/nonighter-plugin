@@ -172,7 +172,75 @@ class KeepsWhatTheUserChanged(unittest.TestCase):
         self.assertTrue((s.ws_skill("decks") / "notes.md").exists())
 
 
+class MergesAnUpdateTheUserAdapted(unittest.TestCase):
+    def adapted(self) -> Sandbox:
+        """1.0.0 installed, the user adds a rule to SKILL.md and a notes file; 1.1.0 is published."""
+        s = Sandbox()
+        s.sync(modeling="1.0.0")
+        f = s.ws_skill("modeling") / "SKILL.md"
+        f.write_text(f.read_text(encoding="utf-8") + "our firm's rule\n", encoding="utf-8")
+        (s.ws_skill("modeling") / "notes.md").write_text("mine", encoding="utf-8")
+        s.sync(modeling="1.1.0")
+        return s
+
+    def test_merge_prep_backs_up_and_sorts_every_file(self):
+        s = self.adapted()
+        out = json.loads(s.run("merge-prep", "modeling"))
+        self.assertEqual((out["from"], out["to"]), ("1.0.0", "1.1.0"))
+        self.assertEqual(out["files"], {"take_new": ["scripts/run.py"], "keep_user": ["notes.md"],
+                                        "both_changed": ["SKILL.md"]})
+        backup = Path(out["backup"])
+        self.assertTrue(backup.is_relative_to(s.ws.resolve() / ".nonighter" / "skill-backups"))
+        self.assertIn("our firm's rule", (backup / "SKILL.md").read_text(encoding="utf-8"))
+        self.assertIn("1.1.0", (Path(out["new"]) / "SKILL.md").read_text(encoding="utf-8"))
+
+    def test_merge_done_moves_the_skill_to_the_new_version_and_keeps_it_the_users(self):
+        s = self.adapted()
+        out = json.loads(s.run("merge-prep", "modeling"))
+        # What Claude does: bring NoNighter's file in, merge the one both changed.
+        user = Path(out["user_copy"])
+        (user / "scripts" / "run.py").write_bytes((Path(out["new"]) / "scripts" / "run.py").read_bytes())
+        (user / "SKILL.md").write_text((Path(out["new"]) / "SKILL.md").read_text(encoding="utf-8")
+                                       + "our firm's rule\n", encoding="utf-8")
+        s.run("merge-done", "modeling")
+        item = s.receipt()["items"]["modeling"]
+        self.assertEqual(item["version"], "1.1.0")
+        self.assertNotIn("available", item)
+        self.assertTrue(json.loads(s.run("status"))["modified"])  # still adapted by the user
+        self.assertIn("keep", s.sync(modeling="1.1.0"))          # and nothing is waiting any more
+
+    def test_replace_takes_the_new_version_and_keeps_a_backup(self):
+        s = self.adapted()
+        s.run("replace", "modeling")
+        f = s.ws_skill("modeling") / "SKILL.md"
+        self.assertNotIn("our firm's rule", f.read_text(encoding="utf-8"))
+        self.assertFalse((s.ws_skill("modeling") / "notes.md").exists())
+        self.assertEqual(json.loads(s.run("status"))["modified"], [])
+        backups = list((s.ws / ".nonighter" / "skill-backups").iterdir())
+        self.assertTrue((backups[0] / "notes.md").exists())
+
+    def test_nothing_waits_means_no_merge(self):
+        s = Sandbox()
+        s.sync(modeling="1.0.0")
+        with self.assertRaises(AssertionError):
+            s.run("merge-prep", "modeling")
+
+
 class StartupHook(unittest.TestCase):
+    def test_the_hook_asks_for_a_check_after_a_day_and_offers_a_waiting_merge(self):
+        s = MergesAnUpdateTheUserAdapted().adapted()
+        r = s.receipt()
+        r["synced_at"] = "2026-01-01T00:00:00Z"
+        (s.data / "sync-skills-receipt.json").write_text(json.dumps(r), encoding="utf-8")
+        out = s.hook()
+        self.assertIn("quietly, at the END of your first answer", out)
+        self.assertIn("a new version is waiting for modeling (1.1.0)", out)
+
+    def test_a_fresh_check_says_nothing(self):
+        s = Sandbox()
+        s.sync(modeling="1.0.0")
+        self.assertNotIn("last checked", s.hook())
+
     def test_the_hook_restores_plugin_skills_but_not_a_workstation_skill_the_user_deleted(self):
         s = Sandbox()
         s.sync(modeling="1.0.0", workstation_init="0.17.1")
