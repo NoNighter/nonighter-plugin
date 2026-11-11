@@ -3,8 +3,10 @@
 
 This plugin ships a connector, this hook and `sync-skills`, and nothing else. Everything a client
 actually works with - the modeling skills, the presentation skills, the workstation installer, the
-document import - arrives per licence through `sync-skills` and installs under `skills/<name>/`,
-the same folder a shipped skill would occupy.
+document import - arrives per licence through `sync-skills`. It installs into the user's workstation
+(`<workstation>/.claude/skills/<name>/`) when there is one, and otherwise under the plugin's own
+`skills/<name>/`, the same folder a shipped skill would occupy. The workstation installer always
+stays in the plugin.
 
 So this hook does two things, in order:
 
@@ -42,7 +44,9 @@ PLUGIN_ROOT = Path(__file__).resolve().parent.parent
 # installs them under skills/. That folder is rebuilt on every plugin version (and per session in
 # Cowork), so this hook re-copies receipted skills from the local zip cache when they are missing -
 # no network, no model - before Claude enumerates skills.
-SYNC_STALE_AFTER_DAYS = 7
+# New skill versions arrive in the store, not with the plugin, and this hook has no credential to ask it:
+# after this long it has Claude ask, quietly, at the end of the first turn.
+SYNC_CHECK_AFTER_DAYS = 1
 
 
 def emit(text: str) -> None:
@@ -67,8 +71,12 @@ def sync_skills_notice() -> str:
                     "ask for modeling work in THIS session after the sync, read the installed SKILL.md under "
                     "skills/<name>/ directly and follow it - skills installed mid-session are listed from the "
                     "next session, not this one.")
-        restored, uncached = [], []
+        restored, uncached, removed = [], [], []
         for item in ss.missing_skills(receipt, plugin_root):
+            if not ss.in_plugin(item, plugin_root):
+                # Workstation skills are never rebuilt by Claude: a missing one was deleted by the user.
+                removed.append(item["name"])
+                continue
             z = ss.cached_zip(item, data_dir)
             if z and z.exists():
                 blob = z.read_bytes()
@@ -84,6 +92,18 @@ def sync_skills_notice() -> str:
         if uncached:
             parts.append("NoNighter skills {} are recorded as installed but missing and not in the cache: run the "
                          "sync-skills skill now, without asking, to fetch them again.".format(", ".join(uncached)))
+        if removed:
+            parts.append("NoNighter skills {} were deleted from the user's workstation. Do not reinstall them "
+                         "unasked; if the user wants one back, sync-skills reinstalls it.".format(", ".join(removed)))
+        home = receipt.get("workstation")
+        if home and receipt["items"]:
+            here = Path(os.environ.get("CLAUDE_PROJECT_DIR") or os.getcwd()).resolve()
+            if not (here == Path(home).resolve() or Path(home).resolve() in here.parents):
+                parts.append("NoNighter skills live in the user's workstation at {} and this session was opened "
+                             "elsewhere, so they are not in its skills list. If the user asks for NoNighter work, "
+                             "read {}/.claude/skills/<name>/SKILL.md and follow it, and say in one line that "
+                             "opening Claude in their workstation folder gives them the skills directly."
+                             .format(home, home))
         age = None
         if receipt.get("synced_at"):
             try:
@@ -92,10 +112,17 @@ def sync_skills_notice() -> str:
                 age = (datetime.now(timezone.utc) - synced).days
             except ValueError:
                 pass
-        if age is not None and age > SYNC_STALE_AFTER_DAYS and not uncached:
-            parts.append("NoNighter skills were last synced {} days ago: offer to run sync-skills once, at the end "
-                         "of the first turn where the user asks for NoNighter's help, after answering them - "
-                         "never before, never gating their work.".format(age))
+        if age is not None and age >= SYNC_CHECK_AFTER_DAYS and not uncached:
+            parts.append("NoNighter skills were last checked {} day(s) ago: run the sync-skills skill once, "
+                         "quietly, at the END of your first answer in this session - never before it, never "
+                         "gating the user's work. It updates the skills the user has not changed by itself; "
+                         "mention it in one line only if something changed.".format(age))
+        adapted = {i["name"]: i["available"]["version"] for i in receipt["items"].values() if i.get("available")}
+        if adapted:
+            parts.append("NoNighter skills: a new version is waiting for {} - skills the user adapted, so it was "
+                         "NOT applied. Offer once, at the end of the first answer, to bring it in keeping their "
+                         "changes (sync-skills, 'Merging an update the user adapted').".format(
+                             ", ".join(f"{n} ({v})" for n, v in adapted.items())))
         return " ".join(parts)
     except Exception:
         return ""
