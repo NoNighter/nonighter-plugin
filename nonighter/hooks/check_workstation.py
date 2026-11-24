@@ -95,6 +95,22 @@ def sync_skills_notice() -> str:
         if removed:
             parts.append("NoNighter skills {} were deleted from the user's workstation. Do not reinstall them "
                          "unasked; if the user wants one back, sync-skills reinstalls it.".format(", ".join(removed)))
+        pending = receipt.get("needs_workstation") or []
+        if pending:
+            here_ws = ss.find_workstation(Path(os.environ.get("CLAUDE_PROJECT_DIR") or os.getcwd()))
+            if here_ws:
+                parts.append("NoNighter skills {} are licensed and wait for a workstation, and this folder now "
+                             "has one: **run the sync-skills skill now, first thing, without asking** - it "
+                             "installs them here.".format(", ".join(pending)))
+            else:
+                parts.append("NoNighter skills {} are licensed but NOT installed: they live in the user's "
+                             "NoNighter workstation, and the skills and the workstation go together. This user "
+                             "has no workstation yet. Do not bring it up unprompted. If they ask for that kind "
+                             "of work, or why they do not have the skills, explain in one or two lines, in "
+                             "their terms: the skills are installed in their workstation, the folder where "
+                             "they work with NoNighter, and they do not have one yet. Then offer to set it up "
+                             "(the workstation-init skill); the skills install by themselves right after."
+                             .format(", ".join(pending)))
         home = receipt.get("workstation")
         if home and receipt["items"]:
             here = Path(os.environ.get("CLAUDE_PROJECT_DIR") or os.getcwd()).resolve()

@@ -89,11 +89,24 @@ class Sandbox:
 
 
 class InstallsInTheWorkstation(unittest.TestCase):
-    def test_without_a_workstation_skills_go_into_the_plugin(self):
+    def test_without_a_workstation_only_the_installer_is_installed(self):
         s = Sandbox(workstation=False)
-        s.sync(modeling="1.0.0")
-        self.assertTrue((s.plugin / "skills" / "modeling" / "SKILL.md").exists())
+        out = s.sync(modeling="1.0.0", workstation_init="0.17.1")
+        self.assertIn("waiting", out)
+        self.assertFalse((s.plugin / "skills" / "modeling").exists())
         self.assertFalse(s.ws_skill("modeling").exists())
+        self.assertTrue((s.plugin / "skills" / "workstation-init" / "SKILL.md").exists())
+        self.assertEqual(s.receipt()["needs_workstation"], ["modeling"])
+        self.assertNotIn("modeling", s.receipt()["items"])
+
+    def test_once_the_workstation_exists_the_waiting_skills_install_into_it(self):
+        s = Sandbox(workstation=False)
+        s.sync(modeling="1.0.0", workstation_init="0.17.1")
+        (s.ws / ".nonighter").mkdir()
+        (s.ws / ".nonighter" / "instance.json").write_text("{}", encoding="utf-8")
+        s.sync(modeling="1.0.0", workstation_init="0.17.1")
+        self.assertTrue((s.ws_skill("modeling") / "SKILL.md").exists())
+        self.assertEqual(s.receipt()["needs_workstation"], [])
 
     def test_with_a_workstation_skills_go_into_it_and_the_installer_stays_in_the_plugin(self):
         s = Sandbox()
@@ -105,11 +118,16 @@ class InstallsInTheWorkstation(unittest.TestCase):
 
     def test_a_skill_installed_before_workstations_moves_into_the_workstation(self):
         s = Sandbox(workstation=False)
-        s.sync(modeling="1.0.0")
-        r = s.receipt()  # an old receipt: no dest, no files
-        for item in r["items"].values():
-            item.pop("dest"), item.pop("files")
-        (s.data / "sync-skills-receipt.json").write_text(json.dumps(r), encoding="utf-8")
+        # What the previous sync-skills left: the skill in the plugin, a receipt with no dest and no files.
+        blob = package("modeling", "1.0.0")
+        with zipfile.ZipFile(io.BytesIO(blob)) as z:
+            z.extractall(s.plugin / "skills" / "modeling")
+        s.data.mkdir()
+        (s.data / "sync-skills-receipt.json").write_text(json.dumps({"tenant": "t1", "synced_at": None, "items": {
+            "modeling": {"name": "modeling", "version": "1.0.0", "kind": "skill",
+                         "sha256": hashlib.sha256(blob).hexdigest()}}}), encoding="utf-8")
+        self.assertIn("keep", s.sync(modeling="1.0.0"))  # no workstation yet: it stays where it was
+        self.assertTrue((s.plugin / "skills" / "modeling" / "SKILL.md").exists())
         (s.ws / ".nonighter").mkdir()
         (s.ws / ".nonighter" / "instance.json").write_text("{}", encoding="utf-8")
         out = s.sync(modeling="1.0.0")
@@ -235,6 +253,16 @@ class StartupHook(unittest.TestCase):
         out = s.hook()
         self.assertIn("quietly, at the END of your first answer", out)
         self.assertIn("a new version is waiting for modeling (1.1.0)", out)
+
+    def test_without_a_workstation_claude_knows_why_the_skills_are_missing(self):
+        s = Sandbox(workstation=False)
+        s.sync(modeling="1.0.0")
+        out = s.hook()
+        self.assertIn("NOT installed", out)
+        self.assertIn("workstation-init", out)
+        (s.ws / ".nonighter").mkdir()
+        (s.ws / ".nonighter" / "instance.json").write_text("{}", encoding="utf-8")
+        self.assertIn("run the sync-skills skill now", s.hook())
 
     def test_a_fresh_check_says_nothing(self):
         s = Sandbox()

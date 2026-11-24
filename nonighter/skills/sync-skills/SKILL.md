@@ -44,9 +44,14 @@ expire in about 15 minutes.
 
    **Where they go.** When the user has a NoNighter workstation, the skills are installed in it, under
    `<workstation>/.claude/skills/<name>/`, so they can see them and adapt them. A plan line `move` takes
-   a skill installed before workstations out of the plugin and into the workstation. Without a
-   workstation, they go into the plugin as before. Run the command from the workstation folder (or pass
-   `--workstation <folder>`), or the script will not find it.
+   a skill installed before workstations out of the plugin and into the workstation. Run the command
+   from the workstation folder (or pass `--workstation <folder>`), or the script will not find it.
+
+   **No workstation, no skills.** The skills and the workstation go together. Without a workstation,
+   the plan says `waiting` and nothing but the workstation installer is installed. Tell the user in one
+   or two lines: their NoNighter skills are installed in their workstation, the folder where they work
+   with NoNighter, and they do not have one yet. Offer to set it up with the workstation-init skill,
+   then run this sync again from that folder.
 
    **What the user changed is theirs.** The script never overwrites or removes a skill the user edited:
    - `modified` means a new version exists and their copy was left alone. Tell them in one line that

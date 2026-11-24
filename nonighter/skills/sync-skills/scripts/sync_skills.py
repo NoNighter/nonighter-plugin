@@ -12,8 +12,13 @@ Where a skill is installed:
                     folder, walking up). The user sees their skills there and may adapt them. Claude
                     discovers a project's `.claude/skills/` on the command line, the desktop app's Code
                     tab and Cowork (measured 2026-11-11), in sessions opened in that folder.
-    <plugin root>/skills/<name>/           when there is no workstation, and always for PLUGIN_ONLY: the
-                    workstation installer cannot live inside a workstation it has not created yet.
+    <plugin root>/skills/<name>/           only PLUGIN_ONLY: the workstation installer cannot live inside a
+                    workstation it has not created yet.
+
+Without a workstation the other skills are NOT installed: they come with the workstation (Toto,
+2026-11-13). The receipt lists them under `needs_workstation`, and the startup hook has Claude explain
+it when the user asks, and run the sync once a workstation exists. Skills installed in the plugin
+before this change stay there until the user has a workstation, then move into it.
 
 Three folders, three jobs:
 
@@ -133,13 +138,14 @@ def load_receipt(plugin_root: Path, data_dir: Path | None) -> dict:
 
 
 def save_receipt(plugin_root: Path, data_dir: Path | None, tenant: str, items: dict,
-                 workstation: Path | None) -> Path:
+                 workstation: Path | None, needs_workstation: list | None = None) -> Path:
     p = receipt_path(plugin_root, data_dir)
     p.parent.mkdir(parents=True, exist_ok=True)
     p.write_text(json.dumps({
         "tenant": tenant,
         "synced_at": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
         "workstation": str(workstation) if workstation else None,
+        "needs_workstation": sorted(needs_workstation or []),  # licensed, not installed: no workstation
         # name -> {name, version, kind, sha256, dest, files}; never the URLs, they expire.
         # `files` is relative path -> sha256 as installed: what tells a user's edit from our copy.
         "items": items,
@@ -148,7 +154,8 @@ def save_receipt(plugin_root: Path, data_dir: Path | None, tenant: str, items: d
 
 
 def target_dir(name: str, plugin_root: Path, workstation: Path | None) -> Path:
-    """Where a skill is installed now: the workstation when there is one, else the plugin."""
+    """Where a skill is installed now: the workstation when there is one, else the plugin (where only
+    PLUGIN_ONLY and skills installed before workstations are ever found)."""
     if workstation and name not in PLUGIN_ONLY:
         return workstation / ".claude" / "skills" / name
     return plugin_root / "skills" / name
@@ -269,6 +276,9 @@ def cmd_apply(a) -> int:
         dest = target_dir(name, plugin_root, workstation)
         prev = receipt["items"].get(name)
         here = skill_dir(prev, plugin_root) if prev else dest
+        if not workstation and not prev and name not in PLUGIN_ONLY:
+            plan.append(("waiting", m, dest))  # comes with the workstation
+            continue
         if dest.exists() and (not prev or here.resolve() != dest.resolve()):
             refused.append((m, "a skill with this name already exists there (shipped with the plugin, or the "
                                "user's own); a downloaded package never overwrites it"))
@@ -289,7 +299,8 @@ def cmd_apply(a) -> int:
         if name not in wanted and name not in duplicated:
             plan.append(("kept" if is_modified(prev, plugin_root) else "remove", prev, skill_dir(prev, plugin_root)))
 
-    notes = {"modified": "  (changed by the user: NOT overwritten; the new version is cached)",
+    notes = {"waiting": "  (needs a NoNighter workstation: not installed until the user has one)",
+             "modified": "  (changed by the user: NOT overwritten; the new version is cached)",
              "deleted": "  (deleted by the user: not reinstalled; --reinstall NAME brings it back)",
              "kept": "  (no longer licensed, but changed by the user: NOT removed)"}
     for action, m, dest in plan:
@@ -306,6 +317,8 @@ def cmd_apply(a) -> int:
         if action == "remove":
             if dest.exists():
                 shutil.rmtree(dest)
+            continue
+        if action == "waiting":
             continue
         if action in ("kept", "deleted"):
             new_items[m["name"]] = dict(prev) | ({"deleted_by_user": True} if action == "deleted" else {})
@@ -341,7 +354,11 @@ def cmd_apply(a) -> int:
             if z.name not in keep:
                 z.unlink()
 
-    print(f"receipt     : {save_receipt(plugin_root, data_dir, tenant, new_items, workstation)}")
+    waiting_ws = [m["name"] for act, m, _ in plan if act == "waiting"]
+    print(f"receipt     : {save_receipt(plugin_root, data_dir, tenant, new_items, workstation, waiting_ws)}")
+    if waiting_ws:
+        print(f"NOTE: {', '.join(waiting_ws)} not installed: they live in the user's NoNighter workstation and "
+              f"this user has none. Set it up with the workstation-init skill, then run this sync again.")
     changed = [m["name"] for act, m, _ in plan if act in ("install", "update", "move")]
     if changed:
         print(f"NOTE: {', '.join(changed)} installed. Claude lists skills when a session starts, so they appear as "
@@ -392,6 +409,7 @@ def cmd_status(a) -> int:
         "restorable": [i["name"] for i in missing if in_plugin(i, plugin_root)
                        and (cached_zip(i, data_dir) or Path("/nonexistent")).exists()],
         "workstation": receipt.get("workstation"),
+        "needs_workstation": receipt.get("needs_workstation", []),
         "modified": [i["name"] for i in receipt["items"].values() if is_modified(i, plugin_root)],
         "updates_waiting": {i["name"]: i["available"]["version"] for i in receipt["items"].values() if i.get("available")},
     }))
@@ -436,7 +454,8 @@ def finish(receipt: dict, item: dict, new_blob: bytes, plugin_root: Path, data_d
                 files={k: hashlib.sha256(v).hexdigest() for k, v in sorted(zip_files(new_blob).items())})
     item.pop("deleted_by_user", None)
     ws = receipt.get("workstation")
-    save_receipt(plugin_root, data_dir, receipt["tenant"], receipt["items"], Path(ws) if ws else None)
+    save_receipt(plugin_root, data_dir, receipt["tenant"], receipt["items"], Path(ws) if ws else None,
+                 receipt.get("needs_workstation"))
     if data_dir and (data_dir / MERGE / item["name"]).exists():
         shutil.rmtree(data_dir / MERGE / item["name"])
 
