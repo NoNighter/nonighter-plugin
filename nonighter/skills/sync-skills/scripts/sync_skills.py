@@ -535,20 +535,31 @@ def cmd_uninstall(a) -> int:
 
 
 def main() -> int:
-    ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    ap.add_argument("--plugin-root", help="default: CLAUDE_PLUGIN_ROOT, else derived from this script's location")
-    ap.add_argument("--data-dir", help="default: CLAUDE_PLUGIN_DATA, else ~/.claude/plugins/data/nonighter; unusable => no cache")
+    # The shared options are accepted before or after the command: a session that writes
+    # `apply --manifest m --workstation <folder>` (seen in the 2026-11-25 end-to-end test) must not fail.
+    shared = argparse.ArgumentParser(add_help=False)
+    shared.add_argument("--plugin-root", default=argparse.SUPPRESS,
+                        help="default: CLAUDE_PLUGIN_ROOT, else derived from this script's location")
+    shared.add_argument("--data-dir", default=argparse.SUPPRESS,
+                        help="default: CLAUDE_PLUGIN_DATA, else ~/.claude/plugins/data/nonighter; unusable => no cache")
+    shared.add_argument("--workstation", default=argparse.SUPPRESS,
+                        help="default: the workstation holding CLAUDE_PROJECT_DIR or the current folder")
+    ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter,
+                                 parents=[shared])
     sub = ap.add_subparsers(dest="command", required=True)
-    ap.add_argument("--workstation", help="default: the workstation holding CLAUDE_PROJECT_DIR or the current folder; none => the plugin")
-    p = sub.add_parser("apply"); p.add_argument("--manifest", required=True); p.add_argument("--check", action="store_true")
+    p = sub.add_parser("apply", parents=[shared]); p.add_argument("--manifest", required=True)
+    p.add_argument("--check", action="store_true")
     p.add_argument("--reinstall", action="append", metavar="NAME", help="bring back a skill the user deleted from their workstation")
     p.set_defaults(fn=cmd_apply)
-    sub.add_parser("restore").set_defaults(fn=cmd_restore)
-    sub.add_parser("status").set_defaults(fn=cmd_status)
-    sub.add_parser("uninstall").set_defaults(fn=cmd_uninstall)
+    sub.add_parser("restore", parents=[shared]).set_defaults(fn=cmd_restore)
+    sub.add_parser("status", parents=[shared]).set_defaults(fn=cmd_status)
+    sub.add_parser("uninstall", parents=[shared]).set_defaults(fn=cmd_uninstall)
     for cmd, fn in (("merge-prep", cmd_merge_prep), ("merge-done", cmd_merge_done), ("replace", cmd_replace)):
-        q = sub.add_parser(cmd); q.add_argument("name"); q.set_defaults(fn=fn)
+        q = sub.add_parser(cmd, parents=[shared]); q.add_argument("name"); q.set_defaults(fn=fn)
     a = ap.parse_args()
+    for opt in ("plugin_root", "data_dir", "workstation"):
+        if not hasattr(a, opt):
+            setattr(a, opt, None)
     return a.fn(a)
 
 
